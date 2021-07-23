@@ -1,0 +1,369 @@
+#### Title : MediaLive Multi-Channel Controller
+#### Author : Scott Cunningham
+#### 
+####
+## Parameters - User Input
+Parameters:
+  DeploymentName:
+    Description: This is the name of the deployment
+    Type: String
+    MinLength: 1
+
+  HTMLPath:
+    Description: This is the path where you would like the HTML pages stored
+    Type: String
+    AllowedPattern: "^(^[a-z,A-Z,0-9].*/$)|(^$)"
+    ConstraintDescription: path can't start with a slash; it must end with a slash or be empty.
+
+## Resources
+Resources:
+  #################
+  ## S3
+  #################
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+
+  #################
+  ## IAM
+  #################
+  ## IAM Role
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      #RoleName: !Sub ${DeploymentName}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+
+  ## IAM Policy
+  S3AccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref LambdaRole
+      PolicyName: !Sub ${DeploymentName}-s3-access
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+          - Effect: Allow
+            Action:
+              - events:*
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - iam:PassRole
+            Resource:
+              - arn:aws:iam::*:role/AWS_Events_Invoke_Targets
+          - Effect: Allow
+            Action:
+              - cloudwatch:GetMetricData
+              - cloudwatch:GetMetricStatistics
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
+              - medialive:*
+            Resource:
+                - '*'
+          - Effect: Allow
+            Action:
+              - execute-api:Invoke
+              - execute-api:ManageConnections
+            Resource:
+              - arn:aws:execute-api:*:*:*
+    DependsOn: S3Bucket
+
+  #################
+  ## Custom Resource
+  #################
+
+  FileMover:
+    Type: Custom::LambdaInvokerToMoveFiles
+    Properties:
+      ServiceToken: !GetAtt FileCopier.Arn
+      Region: !Ref 'AWS::Region'
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+
+  #################
+  ## Lambda
+  #################
+  MediaLiveControlFunctions:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: MediaLive HTML5 API Handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.medialive-control-functions
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  FileCopier:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: Lambda function to copy solution files to destination bucket
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 30
+      MemorySize: 10240
+      Code:
+        ZipFile: |
+          '''
+          Copyright (c) 2021 Scott Cunningham
+
+          Permission is hereby granted, free of charge, to any person obtaining a copy
+          of this software and associated documentation files (the "Software"), to deal
+          in the Software without restriction, including without limitation the rights
+          to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+          copies of the Software, and to permit persons to whom the Software is
+          furnished to do so, subject to the following conditions:
+
+          The above copyright notice and this permission notice shall be included in all
+          copies or substantial portions of the Software.
+
+          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+          IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+          FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+          AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+          LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+          OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+          SOFTWARE.
+
+          Summary: This script is a custom resource to place the HTML pages and Lambda code into the destination bucket.
+
+          Original Author: Scott Cunningham
+          '''
+
+          import json
+          import logging
+          import boto3
+          import os
+          import urllib3
+          from urllib.parse import urlparse
+          from zipfile import ZipFile
+          import cfnresponse
+
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
+          MANIFESTMODIFY="True"
+
+          def lambda_handler(event, context):
+
+              ## Log the incoming event
+              LOGGER.info("Event : %s " % (event))
+
+              ## Create Response Data Dictionary for the CloudFormationn response
+              responseData = dict()
+
+              ## Initialize S3 boto3 client
+              s3 = boto3.client('s3')
+
+              # Create urllib3 pool manager
+              http = urllib3.PoolManager()
+
+              # environment variables
+              bucket = os.environ['BUCKET']
+              path = "test/"
+
+
+              # Manifest File containning URL's on github
+              cloudformation_manifest = "https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/manifest.txt"
+
+              # Get the manifest from GitHub
+              get_response = http.request('GET', cloudformation_manifest)
+
+              if get_response.status != 200:
+                  # Exit the script with errors
+                  responseData['Status'] = "Unable to get file from location : %s " % (file)
+                  cfnresponse.send(event, context, "FAILED",responseData)
+                  raise Exception("Unable to get file from location : %s " % (file))
+              else:
+                  # Continue and upload to S3
+                  manifest_list = get_response.data.decode("utf-8").split("\n")
+
+              # remove manifest.txt header line
+              manifest_list.pop(0)
+              manifest_list.pop(-1)
+
+              LOGGER.info("Files to transfer to S3: %s " % (manifest_list))
+
+              for file in manifest_list:
+
+                  # Get the file from GitHub
+                  get_response = http.request('GET', file)
+
+                  if get_response.status != 200:
+                      # Exit the script with errors
+                      responseData['Status'] = "Unable to get file from location : %s " % (file)
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      raise Exception("Unable to get file from location : %s " % (file))
+                  else:
+
+                      # Continue and upload to S3
+
+                      # url string to urllib object
+                      file_url_formatted = urlparse(file)
+                      file_url_path = file_url_formatted.path
+
+                      # get path after github repo owner name - use this as the path to write to s3
+                      path = '/'.join(file_url_path.split("/")[2:]).rsplit("/",1)[0]
+                      s3_data = get_response.data
+
+
+                      file_name = file.rsplit("/",1)[1]
+                      file_base_name = os.path.splitext(file_name)[0]
+                      s3_key = "%s/%s" % (path,file_name)
+                      LOGGER.info("Now uploading %s to S3, Bucket: %s , path: %s" % (file_name,bucket,s3_key))
+
+                      content_type = ""
+                      if ".html" in file_name:
+                          content_type = "text/html"
+                      elif ".css" in file_name:
+                          content_type = "text/css"
+                      elif ".js" in file_name:
+                          content_type = "text/javascript"
+                      elif "data.json" in file_name:
+                          content_type = "application/json"
+                      elif ".zip" in file_name: # this is the zip
+                          content_type = "application/zip"
+                          s3_key = path + file_name
+                      elif ".py" in file_name:
+                          # write python file to zip,
+                          python_file = open("/tmp/"+file_name,"w")
+                          python_file.write(get_response.data.decode("utf-8"))
+                          python_file.close()
+
+                          # Zip the file
+                          LOGGER.info("Zipping the file : %s " % ("/tmp/"+file_name))
+                          zipObj = ZipFile('/tmp/'+file_name.replace(".py",".zip"), 'w')
+                          # Add file to the zip
+                          zipObj.write('/tmp/'+file_name,"index.py")
+                          # close the Zip File
+                          zipObj.close()
+                          LOGGER.info("Finished zipping file")
+
+                          s3_data = open("/tmp/"+file_name.replace(".py",".zip"), 'rb')
+
+                          s3_key = s3_key.replace(".py",".zip")
+
+                      # "RequestType": "Create"
+                      if event['RequestType'] == "Create" or event['RequestType'] == "Update":
+                          # Upload to S3
+                          try:
+                              s3_response = s3.put_object(Body=s3_data, Bucket=bucket, Key=s3_key,ContentType=content_type, ACL='public-read', CacheControl='no-cache')
+                              LOGGER.info("Uploaded %s to S3, got response : %s " % (file_name,s3_response) )
+                              responseData[file_base_name] = s3_key
+                          except Exception as e:
+                              LOGGER.error("Unable to upload %s to S3, got exception: %s" % (file_name,e))
+                              responseData['Status'] = "Unable to upload %s to S3, got exception: %s" % (file_name,e)
+                              cfnresponse.send(event, context, "FAILED",responseData)
+                              raise Exception("Unable to upload %s to S3, got exception: %s" % (file_name,e))
+
+                      else: # DELETE
+                          try:
+                              s3_response = s3.delete_object(Bucket=bucket,Key=s3_key)
+                              LOGGER.info("Deleted %s from S3, got response : %s " % (file_name,s3_response) )
+                          except Exception as e:
+                              LOGGER.error("Unable to delete %s from S3, got exception: %s" % (file_name,e))
+                              responseData['Status'] = "Unable to delete %s from S3, got exception: %s" % (file_name,e)
+                              cfnresponse.send(event, context, "FAILED",responseData)
+
+              responseData['Status'] = "SUCCESS"
+              cfnresponse.send(event, context, "SUCCESS",responseData)
+              return responseData
+
+      Environment:
+        Variables:
+          BUCKET: !Ref S3Bucket
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - S3AccessPolicy
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MediaLiveControlFunctions.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+    DependsOn:
+      - MediaLiveControlFunctions
+
+  #################
+  ## API Gateway
+  #################
+
+#################################
+# Outputs
+#################################
+
+Outputs:
+  DashboardUrl:
+    Description: Dashboard URL for MediaLive control
+    Value: !Sub https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/${FileMover.ui}
+    #Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/newdata
+
+  APIEndpointURL:
+    Description: API Endpoint for updating configuration
+    Value: !Sub https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/${FileMover.ui}
+
+  ThumbnailPublishingURL:
+    Description: MediaLive needs to output thumbnails to this location
+    Value: !Sub s3://${S3Bucket}/
