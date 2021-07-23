@@ -1,0 +1,16 @@
+## CloudFormation manifest of all the file locations
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/README.md
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/css/style.css
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/js/pagefunctions.js
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/channel_map.json
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/ui.html
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/error.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/placeholder.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/starting.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/stopping.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/stopped.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/jpg-s3-put-rename.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/medialive-cloudwatch-events-thumb-update.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/medialive-control-functions.py
+https://github.com/scunning1987/medialive_multi_channel_controller/blob/main/promos_ads/short_slate.mp4?raw=true
+https://github.com/scunning1987/medialive_multi_channel_controller/blob/main/slates/short_slate.mp4?raw=true

@@ -171,7 +171,6 @@ function chstartstopcontrol(action_type){
   document.getElementById(action_type).classList.add('pressedbutton');
   console.log("action type: "+action_type+" for channel ID : "+live_event_map[pipSelector][0])
   // API Call to start/stop channel
-  alert("Performing channel action "+action_type+" on MediaLive Channnel "+live_event_map[pipSelector][0]+", please be patient as this process can take 1-2 minutes")
   channelStartStop(action_type)
 
   // reset styling on the pip now that the action has been performed

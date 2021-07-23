@@ -10,6 +10,8 @@ The last part of the workflow involves the use of overwriting channel JPG’s to
 
 Note that the solution supports MediaLive channels in multiple regions. However, in order for the solution to work correctly, each region that a MediaLive channel has been deployed into needs to have a CloudWatch event rule and AWS Lambda deployed.
 
+![](images/dashboard-sample.png?width=60pc&classes=border,shadow)
+
 ## Architecture Overview
 ### High Level
 ![](images/Architecture_001.png?width=60pc&classes=border,shadow)
