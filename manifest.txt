@@ -15,4 +15,3 @@ https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controlle
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/promos_ads/short_slate.mp4
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/slates/short_slate.mp4
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/status_thumbnails/thumbs.txt
-

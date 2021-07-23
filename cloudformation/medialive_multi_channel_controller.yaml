@@ -358,12 +358,17 @@ Outputs:
   DashboardUrl:
     Description: Dashboard URL for MediaLive control
     Value: !Sub https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/${FileMover.ui}
-    #Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/newdata
+
+  APIEndpointURLGetSample:
+    Description: API Endpoint for getting sample configuration
+    Value: https://ApiGateway.execute-api.AWSRegion.amazonaws.com/ApiStage/sample-configuration
+    #Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/sample-configuration
 
   APIEndpointURL:
-    Description: API Endpoint for updating configuration
-    Value: !Sub https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/${FileMover.ui}
+    Description: API Endpoint for getting current config (GET), and updating config (PUT)
+    Value: https://ApiGateway.execute-api.AWSRegion.amazonaws.com/ApiStage/configuration
+    #Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/configuration
 
-  ThumbnailPublishingURL:
+  ThumbnailPublishingS3URI:
     Description: MediaLive needs to output thumbnails to this location
-    Value: !Sub s3://${S3Bucket}/
+    Value: !Sub s3://${S3Bucket}/${FileMover.thumbs}
