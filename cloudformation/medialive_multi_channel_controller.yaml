@@ -112,6 +112,24 @@ Resources:
               - arn:aws:execute-api:*:*:*
     DependsOn: S3Bucket
 
+  LambdaInvokePermissionAPIGateway:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MediaLiveControlFunctions.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+    DependsOn:
+      - MediaLiveControlFunctions
+
+  LambdaInvokePermissionS3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ThumbnailS3PutRename.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+    DependsOn:
+      - ThumbnailS3PutRename
+
   #################
   ## Custom Resource
   #################
@@ -125,6 +143,21 @@ Resources:
       - S3Bucket
       - LambdaRole
 
+  S3PutEvent:
+    Type: Custom::LambdaToPutS3BucketNotification
+    Properties:
+      ServiceToken: !GetAtt S3BucketNotificationLambda.Arn
+      Region: !Ref 'AWS::Region'
+      Bucket: !Ref S3Bucket
+      Prefix: !GetAtt FileMover.thumbs
+      LambdaArn: !GetAtt ThumbnailS3PutRename.Arn
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - S3AccessPolicy
+      - ThumbnailS3PutRename
+      - FileMover
+
   #################
   ## Lambda
   #################
@@ -132,7 +165,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
-      Description: MediaLive HTML5 API Handler
+      Description: MediaLive Boto3 Control actions
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.8
       Handler: index.lambda_handler
@@ -141,6 +174,56 @@ Resources:
       Code:
         S3Bucket: !Ref S3Bucket
         S3Key: !GetAtt FileMover.medialive-control-functions
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  MediaLiveCWatchEventsThumbUpdate:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: CloudWatch events driven Lambda to modify status thumbnail for MediaLive Channels
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.medialive-cloudwatch-events-thumb-update
+      Environment:
+        Variables:
+          SLATE_BUCKET: !Ref S3Bucket
+          SLATE_KEY_STARTING: !GetAtt FileMover.starting
+          SLATE_KEY_STOPPING: !GetAtt FileMover.stopping
+          SLATE_KEY_STOPPED: !GetAtt FileMover.stopped
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  ThumbnailS3PutRename:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: S3 PUT Event driven Lambda to remove the incrementing filename of MediaLive Status thumbnails
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.jpg-s3-put-rename
       Tags:
         - Key: DeploymentName
           Value: !Ref DeploymentName
@@ -217,8 +300,6 @@ Resources:
 
               # environment variables
               bucket = os.environ['BUCKET']
-              path = "test/"
-
 
               # Manifest File containning URL's on github
               cloudformation_manifest = "https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/manifest.txt"
@@ -237,21 +318,21 @@ Resources:
 
               # remove manifest.txt header line
               manifest_list.pop(0)
-              manifest_list.pop(-1)
 
               LOGGER.info("Files to transfer to S3: %s " % (manifest_list))
 
               for file in manifest_list:
 
                   # Get the file from GitHub
-                  get_response = http.request('GET', file)
+                  if "http" in file:
+                      get_response = http.request('GET', file)
 
                   if get_response.status != 200:
                       # Exit the script with errors
                       responseData['Status'] = "Unable to get file from location : %s " % (file)
                       cfnresponse.send(event, context, "FAILED",responseData)
                       raise Exception("Unable to get file from location : %s " % (file))
-                  else:
+                  elif "http" in file:
 
                       # Continue and upload to S3
 
@@ -267,7 +348,6 @@ Resources:
                       file_name = file.rsplit("/",1)[1]
                       file_base_name = os.path.splitext(file_name)[0]
                       s3_key = "%s/%s" % (path,file_name)
-                      LOGGER.info("Now uploading %s to S3, Bucket: %s , path: %s" % (file_name,bucket,s3_key))
 
                       content_type = ""
                       if ".html" in file_name:
@@ -296,13 +376,14 @@ Resources:
                           zipObj.close()
                           LOGGER.info("Finished zipping file")
 
+                          content_type = "application/zip"
                           s3_data = open("/tmp/"+file_name.replace(".py",".zip"), 'rb')
-
                           s3_key = s3_key.replace(".py",".zip")
 
                       # "RequestType": "Create"
                       if event['RequestType'] == "Create" or event['RequestType'] == "Update":
                           # Upload to S3
+                          LOGGER.info("Now uploading %s to S3, Bucket: %s , path: %s" % (file_name,bucket,s3_key))
                           try:
                               s3_response = s3.put_object(Body=s3_data, Bucket=bucket, Key=s3_key,ContentType=content_type, ACL='public-read', CacheControl='no-cache')
                               LOGGER.info("Uploaded %s to S3, got response : %s " % (file_name,s3_response) )
@@ -321,7 +402,8 @@ Resources:
                               LOGGER.error("Unable to delete %s from S3, got exception: %s" % (file_name,e))
                               responseData['Status'] = "Unable to delete %s from S3, got exception: %s" % (file_name,e)
                               cfnresponse.send(event, context, "FAILED",responseData)
-
+                  else:
+                      LOGGER.info("Got line in manifest.txt that isn't a URL: %s " % (file))
               responseData['Status'] = "SUCCESS"
               cfnresponse.send(event, context, "SUCCESS",responseData)
               return responseData
@@ -337,14 +419,107 @@ Resources:
       - LambdaRole
       - S3AccessPolicy
 
-  LambdaInvokePermission:
-    Type: AWS::Lambda::Permission
+  S3BucketNotificationLambda:
+    Type: 'AWS::Lambda::Function'
     Properties:
-      FunctionName: !GetAtt MediaLiveControlFunctions.Arn
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaRole.Arn
+      Code:
+        ZipFile: |
+
+          from __future__ import print_function
+          import json
+          import boto3
+          import cfnresponse
+
+          SUCCESS = "SUCCESS"
+          FAILED = "FAILED"
+
+          print('Loading function')
+          s3 = boto3.resource('s3')
+
+          def lambda_handler(event, context):
+              print("Received event: " + json.dumps(event, indent=2))
+              responseData={}
+              try:
+                  if event['RequestType'] == 'Delete':
+                      print("Request Type:",event['RequestType'])
+                      Bucket=event['ResourceProperties']['Bucket']
+                      delete_notification(Bucket)
+                      print("Sending response to custom resource after Delete")
+                  elif event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                      print("Request Type:",event['RequestType'])
+                      LambdaArn=event['ResourceProperties']['LambdaArn']
+                      Bucket=event['ResourceProperties']['Bucket']
+                      Prefix=event['ResourceProperties']['Prefix'].rsplit("/",1)[0]
+                      add_notification(LambdaArn, Bucket, Prefix)
+                      responseData={'Bucket':Bucket}
+                      print("Sending response to custom resource")
+                  responseStatus = 'SUCCESS'
+              except Exception as e:
+                  print('Failed to process:', e)
+                  responseStatus = 'FAILED'
+                  responseData = {'Failure': 'Something bad happened.'}
+              cfnresponse.send(event, context, responseStatus, responseData)
+
+          def add_notification(LambdaArn, Bucket, Prefix):
+              bucket_notification = s3.BucketNotification(Bucket)
+              response = bucket_notification.put(
+                NotificationConfiguration={
+                  'LambdaFunctionConfigurations': [
+                    {
+                        'LambdaFunctionArn': LambdaArn,
+                        'Events': [
+                            's3:ObjectCreated:*'
+                        ],
+                        'Filter':{'Key':{'FilterRules':[{'Name':'prefix','Value':Prefix}]}}
+                    }
+                  ]
+                }
+              )
+              print("Put request completed....")
+
+          def delete_notification(Bucket):
+              bucket_notification = s3.BucketNotification(Bucket)
+              response = bucket_notification.put(
+                  NotificationConfiguration={}
+              )
+              print("Delete request completed....")
+      Runtime: python3.6
+      Timeout: 50
     DependsOn:
-      - MediaLiveControlFunctions
+      - S3Bucket
+      - LambdaRole
+      - S3AccessPolicy
+      - ThumbnailS3PutRename
+
+  #################
+  ## EventBridge
+  #################
+
+  MediaLiveStateChange:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event Bridge for MediaLive channel state changes
+      EventPattern: {
+        "source": [
+            "aws.medialive",
+            "lambda.amazonaws.com"
+        ],
+        "detail-type": [
+            "MediaLive Channel State Change"
+        ],
+        "detail": {
+          "state": [
+              "STARTING",
+              "STOPPING",
+              "STOPPED"
+          ]
+        }
+      }
+      Targets:
+        - Arn: !GetAtt MediaLiveCWatchEventsThumbUpdate.Arn
+          Id: MediaLiveCWatchEventsThumbUpdate
 
   #################
   ## API Gateway
