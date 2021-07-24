@@ -10,7 +10,7 @@
   "9":[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg",""],
   "10":[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg",""],
   "11":[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg",""],
-  "12":[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg",""],
+  "12":[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg",""]
 },
 "vod_bucket":"cunsco-media",
 "channel_start_slate":"s3://cunsco-media/INTRO.mp4",
