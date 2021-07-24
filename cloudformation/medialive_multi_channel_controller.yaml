@@ -149,7 +149,7 @@ Resources:
       ServiceToken: !GetAtt S3BucketNotificationLambda.Arn
       Region: !Ref 'AWS::Region'
       Bucket: !Ref S3Bucket
-      Prefix: !GetAtt FileMover.thumbs
+      Prefix: !GetAtt FileMover.unique_thumb_name
       LambdaArn: !GetAtt ThumbnailS3PutRename.Arn
     DependsOn:
       - S3Bucket
@@ -546,4 +546,4 @@ Outputs:
 
   ThumbnailPublishingS3URI:
     Description: MediaLive needs to output thumbnails to this location
-    Value: !Sub s3://${S3Bucket}/${FileMover.thumbs}
+    Value: !Sub s3://${S3Bucket}/${FileMover.unique_thumb_name}
