@@ -128,11 +128,24 @@ Resources:
     Properties:
       FunctionName: !GetAtt ThumbnailS3PutRename.Arn
       Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !GetAtt S3Bucket.Arn
+    DependsOn:
+      - S3Bucket
+      - ThumbnailS3PutRename
+
+  LambdaInvokePermissionEvents:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MediaLiveCWatchEventsThumbUpdate.Arn
+      Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
       SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !GetAtt MediaLiveStateChange.Arn
     DependsOn:
       - ThumbnailS3PutRename
+      - MediaLiveStateChange
 
   #################
   ## Custom Resource
@@ -463,7 +476,7 @@ Resources:
               except Exception as e:
                   print('Failed to process:', e)
                   responseStatus = 'FAILED'
-                  responseData = {'Failure': 'Something bad happened.'}
+                  responseData = {'Failure': 'Something bad happened : %s .' % (e)}
               cfnresponse.send(event, context, responseStatus, responseData)
 
           def add_notification(LambdaArn, Bucket, Prefix):
@@ -481,6 +494,7 @@ Resources:
                   ]
                 }
               )
+              print("event notification put response: %s " % (response))
               print("Put request completed....")
 
           def delete_notification(Bucket):
@@ -496,6 +510,7 @@ Resources:
       - LambdaRole
       - S3AccessPolicy
       - ThumbnailS3PutRename
+      - FileMover
 
   #################
   ## EventBridge
