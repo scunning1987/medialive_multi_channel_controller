@@ -17,7 +17,9 @@ html * {
   display:inline-block;
   font-family: Verdana, Calibri, Arial;
 }
-
+td{
+  text-align:center;
+}
 #deployment_title {
   position: absolute;
   top: 0px;
