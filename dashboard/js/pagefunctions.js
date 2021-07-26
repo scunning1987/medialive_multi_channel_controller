@@ -73,7 +73,7 @@ function tableCreate(total_channels){
             if( Math.ceil( j / columns ) == i ){
                 var td = tr.insertCell();
                 //td.appendChild(document.createTextNode(thumbs[j-1]));
-                td.innerHTML = '<img height="'+thumb_height+'" width="'+thumb_width+'" class="thumbs" id="thumb_jpg_'+j.toString()+'" src="'+live_event_map[j][3]+'" onclick=\'thumbclick("'+j.toString()+'")\'>'
+                td.innerHTML = '<img height="'+thumb_height+'" width="'+thumb_width+'" class="thumbs" id="thumb_jpg_'+j.toString()+'" src="'+live_event_map[j][3]+'" onclick=\'thumbclick("'+j.toString()+'")\'>+'+live_event_map[j][1]
                 td.id = "thumb_"+ j.toString()
                 //td.style.border = '1px solid black';
                 td.style.padding = '10px 10px 10px 10px';

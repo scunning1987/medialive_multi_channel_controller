@@ -33,7 +33,7 @@ Resources:
           Value: !Ref DeploymentName
 
   #################
-  ## IAM
+  ## IAM & Permissions
   #################
   ## IAM Role
   LambdaRole:
@@ -118,6 +118,8 @@ Resources:
       FunctionName: !GetAtt MediaLiveControlFunctions.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      ArnLike: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiStage}/*
     DependsOn:
       - MediaLiveControlFunctions
 
@@ -126,7 +128,9 @@ Resources:
     Properties:
       FunctionName: !GetAtt ThumbnailS3PutRename.Arn
       Action: lambda:InvokeFunction
-      Principal: s3.amazonaws.com
+      Principal: events.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !GetAtt MediaLiveStateChange.Arn
     DependsOn:
       - ThumbnailS3PutRename
 
