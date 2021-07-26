@@ -9,11 +9,11 @@ Parameters:
     Type: String
     MinLength: 1
 
-  HTMLPath:
-    Description: This is the path where you would like the HTML pages stored
-    Type: String
-    AllowedPattern: "^(^[a-z,A-Z,0-9].*/$)|(^$)"
-    ConstraintDescription: path can't start with a slash; it must end with a slash or be empty.
+  #HTMLPath:
+  #  Description: This is the path where you would like the HTML pages stored
+  #  Type: String
+  #  AllowedPattern: "^(^[a-z,A-Z,0-9].*/$)|(^$)"
+  #  ConstraintDescription: path can't start with a slash; it must end with a slash or be empty.
 
 ## Resources
 Resources:
@@ -119,7 +119,7 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceAccount: !Ref 'AWS::AccountId'
-      ArnLike: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiStage}/*
+      #ArnLike: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiStage}/*
     DependsOn:
       - MediaLiveControlFunctions
 
