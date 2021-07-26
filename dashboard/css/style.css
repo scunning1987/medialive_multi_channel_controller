@@ -39,7 +39,7 @@ td{
 #channels_body{
   display:block;
   width:1500px;
-  height:500px;
+  height:580px;
   margin:auto;
   border-top:3px solid #cccccc;
   border-bottom:3px solid #cccccc;
@@ -54,7 +54,7 @@ td{
 #multiviewer {
   position: relative;
   float:left;
-  height: 500px;
+  height: 580px;
   width: 1500px;
   overflow: scroll;
 }
