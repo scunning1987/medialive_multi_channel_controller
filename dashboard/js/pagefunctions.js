@@ -1,4 +1,5 @@
 //
+/*
 deployment_name = "Disney Streaming"
 pipeline = "SINGLE_PIPELINE"
 const apiendpointurl = "https://jl66fjfil5.execute-api.us-west-2.amazonaws.com/eng/playout"
@@ -41,20 +42,14 @@ const live_event_map = {
   31:[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg","",["","","",""]],
   32:[0,"x","region","https://cunsco-media.s3-us-west-2.amazonaws.com/eml-output/placeholder.jpg","",["","","",""]],
 }
+*/
+//var deployment_name, live_event_map,bucket,channel_start_slate,slate_bucket,startup_slate_key,pipSelector
+
+const apiendpointurl = "https://jl66fjfil5.execute-api.us-west-2.amazonaws.com/eng/playout"
+
+const apiendpointurl_global = "https://bg3x65ldw5.execute-api.us-west-2.amazonaws.com/v1/video-deployment-interface"
 
 //// LEAVE CODE BELOW THIS LINE /////
-
-var total_channels = Object.keys(live_event_map).length;
-console.log("There are " + total_channels.toString() + " channels in this dashboard")
-var thumbnail_size;
-if ( parseInt(total_channels) < 9 ) {
-  thumbnail_size = 2
-} else {
-  thumbnail_size = 1
-}
-
-var pipSelector = ""
-var deployment_name_pretty = deployment_name.toUpperCase().replace("_"," ")
 
 function tableCreate(total_channels){
 
@@ -73,7 +68,7 @@ function tableCreate(total_channels){
             if( Math.ceil( j / columns ) == i ){
                 var td = tr.insertCell();
                 //td.appendChild(document.createTextNode(thumbs[j-1]));
-                td.innerHTML = '<img height="'+thumb_height+'" width="'+thumb_width+'" class="thumbs" id="thumb_jpg_'+j.toString()+'" src="'+live_event_map[j][3]+'" onclick=\'thumbclick("'+j.toString()+'")\'></br>'+live_event_map[j][1]
+                td.innerHTML = '<img height="'+thumb_height+'" width="'+thumb_width+'" class="thumbs" id="thumb_jpg_'+j.toString()+'" src="'+live_event_map[j.toString()][3]+'" onclick=\'thumbclick("'+j.toString()+'")\'></br>'+live_event_map[j.toString()][1]
                 td.id = "thumb_"+ j.toString()
                 //td.style.border = '1px solid black';
                 td.style.padding = '10px 10px 10px 10px';
@@ -85,20 +80,41 @@ function tableCreate(total_channels){
 }
 
 
-function pageLoadFunction(){
-  // write deployment title
-  document.getElementById('deployment_title').innerHTML = '<h1 style="text-align:center">'+deployment_name_pretty+'</h1>'
+function getConfig(){
+  var json_data,
+  current_url = window.location.href
+  json_endpoint = current_url.substring(0,current_url.lastIndexOf("/")) + "/channel_map.json"
 
-  // create multiviewer PIPs
-  tableCreate(total_channels);
+  var request = new XMLHttpRequest();
+  request.open('GET', json_endpoint, false);
 
-  // create video js player element
-  document.getElementById('preview_window').innerHTML = '<div id="hlsplayer" class="player2position playerstyle playercolor"><video-js id="my-video" class="vjs-default-skin" controls preload="auto" width="320" height="180"><source src="" type="application/x-mpegURL"></video-js></div>'
+  request.onload = function() {
+
+  if (request.status === 200) {
+    const jdata = JSON.parse(request.responseText);
+    console.log(jdata)
+    window.live_event_map = jdata.channel_map
+    window.channel_start_slate = jdata.channel_start_slate
+    window.deployment_name = jdata.dashboard_title
+    window.bucket = jdata.vod_bucket
+    json_data = request.responseText
+    return "hello";
+     } else {
+    // Reached the server, but it returned an error
+  }
 }
+
+request.onerror = function() {
+  console.error('An error occurred fetching the JSON from ' + json_endpoint);
+};
+
+request.send();
+return json_data
+} // end
 
 function thumbclick(channel_number) {
   // set Pip Selector value so it can be used by other functions
-  pipSelector = channel_number;
+  pipSelector = channel_number.toString();
   console.log("PipSelector value is " + pipSelector)
   // add info to channel info section
   document.getElementById("selected_channel_info").innerHTML = '<h3>Channel Info</h3>'
@@ -287,6 +303,40 @@ var fadeAway = function(buttonid) {
   document.getElementById(buttonid).classList.remove('pressedbutton');
  }, 2000);
 }
+
+function pageLoadFunction(){
+  getConfig()
+  console.log("channel map : " + JSON.stringify(live_event_map))
+  console.log("channel start slate: "+ channel_start_slate)
+  console.log("vod bucket: " + bucket)
+  console.log("dashboard name: " + deployment_name)
+  var s3_slate_url = new URL(channel_start_slate.replace("s3://","https://"))
+  window.slate_bucket = s3_slate_url.hostname
+  window.startup_slate_key = s3_slate_url.pathname.replace(/^\/+/, '')
+
+  // write deployment title
+  var deployment_name_pretty = deployment_name.toUpperCase().replace("_"," ")
+  document.getElementById('deployment_title').innerHTML = '<h1 style="text-align:center">'+deployment_name_pretty+'</h1>'
+
+  // create video js player element
+  document.getElementById('preview_window').innerHTML = '<div id="hlsplayer" class="player2position playerstyle playercolor"><video-js id="my-video" class="vjs-default-skin" controls preload="auto" width="320" height="180"><source src="" type="application/x-mpegURL"></video-js></div>'
+
+  var total_channels = Object.keys(live_event_map).length;
+console.log("There are " + total_channels.toString() + " channels in this dashboard")
+window.thumbnail_size = 1
+if ( parseInt(total_channels) < 9 ) {
+  window.thumbnail_size = 2
+} else {
+  window.thumbnail_size = 1
+}
+
+  // create multiviewer PIPs
+  tableCreate(total_channels);
+
+pipSelector = ""
+
+}
+
 
 /// API Calls
 /// S3 GET OBJECT API CALL - START
