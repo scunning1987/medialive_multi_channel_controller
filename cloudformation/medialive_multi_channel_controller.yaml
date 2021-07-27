@@ -200,6 +200,33 @@ Resources:
       - FileCopier
       - FileMover
 
+  MediaLiveControlConfig:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: Channel configuration API handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.medialive-control-config
+      Environment:
+        Variables:
+          BUCKET: !Ref S3Bucket
+          CONFIG_KEY: !GetAtt FileMover.channel_map
+          TEMPLATE_KEY: !GetAtt FileMover.channel_map_template
+      Tags:
+        - Key: DeploymentName
+          Value: !Ref DeploymentName
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
   MediaLiveCWatchEventsThumbUpdate:
     Type: AWS::Lambda::Function
     Properties:
