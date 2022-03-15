@@ -1,0 +1,849 @@
+#### Title : MediaLive Multi-Channel Controller - Variation 377
+#### Author : Scott Cunningham
+#### 
+####
+## Parameters - User Input
+Parameters:
+  S3PolicyForMediaAccess:
+    Description: Policy that gives Lambda access to customer managed S3 Bucket
+    Type: String
+    AllowedPattern: ^arn:aws:iam::.+ #(\d{12}|aws):policy/:+
+    Default: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+
+  SubnetToDeployApiInterface:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet(s) to deploy API Gateway Interface endpoint
+
+  VpcToDeployInto:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC Identifier
+
+  InterfaceEndpointSecurityGroups:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Select one or more security groups to apply to the API Gateway Interface endpoint
+
+
+## Resources
+Resources:
+  #################
+  ## S3
+  #################
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument: !Sub
+        |-
+        {
+            "Version": "2012-10-17",
+            "Id": "PolicyForCloudFrontPrivateContent",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOAI}"
+                    },
+                    "Action": "s3:GetObject",
+                    "Resource": "arn:aws:s3:::${S3Bucket}/*"
+                }
+            ]
+        }
+    DependsOn:
+      - S3Bucket
+      - CloudFrontOAI
+
+  #################
+  ## IAM & Permissions
+  #################
+  ## IAM Role
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - !Sub ${S3PolicyForMediaAccess}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+  ## IAM Policy
+  S3AccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref LambdaRole
+      PolicyName: !Sub ${AWS::StackName}-s3-access
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}/*
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource:
+              - !Sub arn:aws:s3:::${S3Bucket}
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+          - Effect: Allow
+            Action:
+              - medialive:*
+            Resource:
+                - '*'
+    DependsOn: S3Bucket
+
+  LambdaInvokePermissionAPIGateway:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MediaLiveControlFunctions.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/dashboard-ctrl"
+    DependsOn:
+      - MediaLiveControlFunctions
+
+  LambdaInvokePermissionAPIHandlerAPIGateway:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt MediaLiveControlConfig.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/dashboard-cfg/*"
+    DependsOn:
+      - MediaLiveControlConfig
+
+  #################
+  ## Custom Resource
+  #################
+
+  FileMover:
+    Type: Custom::LambdaInvokerToMoveFiles
+    Properties:
+      ServiceToken: !GetAtt FileCopier.Arn
+      Region: !Ref 'AWS::Region'
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+
+  ChannelMapUpdater:
+    Type: Custom::LambdaInvokerToUpdateConfig
+    Properties:
+      ServiceToken: !GetAtt ChannelMapUpdaterFunction.Arn
+      Region: !Ref 'AWS::Region'
+      Bucket: !Ref S3Bucket
+      Config_Key: !GetAtt FileMover.channel_map
+      Api_Ctrl: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-ctrl
+    DependsOn:
+      - ApiGateway
+
+  #################
+  ## Lambda
+  #################
+  MediaLiveControlFunctions:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: MediaLive Boto3 Control actions
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.medialive-control-functions
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  MediaLiveControlConfig:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: Channel configuration API handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.medialive-control-config
+      Environment:
+        Variables:
+          BUCKET: !Ref S3Bucket
+          CONFIG_KEY: !GetAtt FileMover.channel_map
+          TEMPLATE_KEY: !GetAtt FileMover.channel_map_template
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  FileCopier:
+    Type: AWS::Lambda::Function
+    Properties:
+      #FunctionName: !Sub ${DeploymentName}-medialive-html5-api-handler
+      Description: Lambda function to copy solution files to destination bucket
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 35
+      MemorySize: 10240
+      Code:
+        ZipFile: |
+          '''
+          Copyright (c) 2021 Scott Cunningham
+
+          Permission is hereby granted, free of charge, to any person obtaining a copy
+          of this software and associated documentation files (the "Software"), to deal
+          in the Software without restriction, including without limitation the rights
+          to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+          copies of the Software, and to permit persons to whom the Software is
+          furnished to do so, subject to the following conditions:
+
+          The above copyright notice and this permission notice shall be included in all
+          copies or substantial portions of the Software.
+
+          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+          IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+          FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+          AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+          LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+          OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+          SOFTWARE.
+
+          Summary: This script is a custom resource to place the HTML pages and Lambda code into the destination bucket.
+
+          Original Author: Scott Cunningham
+          '''
+
+          import json
+          import logging
+          import boto3
+          import os
+          import urllib3
+          from urllib.parse import urlparse
+          from zipfile import ZipFile
+          import cfnresponse
+
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
+          MANIFESTMODIFY="True"
+
+          version = 2
+
+          def lambda_handler(event, context):
+
+              ## Log the incoming event
+              LOGGER.info("Event : %s " % (event))
+
+              ## Create Response Data Dictionary for the CloudFormationn response
+              responseData = dict()
+
+              ## Initialize S3 boto3 client
+              s3 = boto3.client('s3')
+
+              # Create urllib3 pool manager
+              http = urllib3.PoolManager()
+
+              # environment variables
+              bucket = os.environ['BUCKET']
+              apiendpoint = os.environ['APIENDPOINT']
+
+              # Manifest File containning URL's on github
+              cloudformation_manifest = "https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/manifest.txt"
+
+              # Get the manifest from GitHub
+              get_response = http.request('GET', cloudformation_manifest)
+
+              if get_response.status != 200:
+                  # Exit the script with errors
+                  responseData['Status'] = "Unable to get file from location : %s " % (file)
+                  cfnresponse.send(event, context, "FAILED",responseData)
+                  raise Exception("Unable to get file from location : %s " % (file))
+              else:
+                  # Continue and upload to S3
+                  manifest_list = get_response.data.decode("utf-8").split("\n")
+
+              # remove manifest.txt header line
+              manifest_list.pop(0)
+
+              LOGGER.info("Files to transfer to S3: %s " % (manifest_list))
+
+              for file in manifest_list:
+
+                  # Get the file from GitHub
+                  if "http" in file:
+                      get_response = http.request('GET', file)
+
+                  if get_response.status != 200:
+                      # Exit the script with errors
+                      responseData['Status'] = "Unable to get file from location : %s " % (file)
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      raise Exception("Unable to get file from location : %s " % (file))
+                  elif "http" in file:
+
+                      # Continue and upload to S3
+
+                      # url string to urllib object
+                      file_url_formatted = urlparse(file)
+                      file_url_path = file_url_formatted.path
+
+                      # get path after github repo owner name - use this as the path to write to s3
+                      path = '/'.join(file_url_path.split("/")[2:]).rsplit("/",1)[0]
+                      s3_data = get_response.data
+
+
+                      file_name = file.rsplit("/",1)[1]
+                      file_base_name = os.path.splitext(file_name)[0]
+                      s3_key = "%s/%s" % (path,file_name)
+
+                      content_type = ""
+                      if ".html" in file_name:
+                          content_type = "text/html"
+                      elif ".css" in file_name:
+                          content_type = "text/css"
+                      elif ".js" in file_name:
+                          content_type = "text/javascript"
+                      elif ".json" in file_name:
+                          content_type = "application/json"
+                      elif ".zip" in file_name: # this is the zip
+                          content_type = "application/zip"
+                          s3_key = path + file_name
+                      elif ".py" in file_name:
+                          # write python file to zip,
+                          python_file = open("/tmp/"+file_name,"w")
+                          python_file.write(get_response.data.decode("utf-8"))
+                          python_file.close()
+
+                          # Zip the file
+                          LOGGER.info("Zipping the file : %s " % ("/tmp/"+file_name))
+                          zipObj = ZipFile('/tmp/'+file_name.replace(".py",".zip"), 'w')
+                          # Add file to the zip
+                          zipObj.write('/tmp/'+file_name,"index.py")
+                          # close the Zip File
+                          zipObj.close()
+                          LOGGER.info("Finished zipping file")
+
+                          content_type = "application/zip"
+                          s3_data = open("/tmp/"+file_name.replace(".py",".zip"), 'rb')
+                          s3_key = s3_key.replace(".py",".zip")
+
+                      # "RequestType": "Create"
+                      if event['RequestType'] == "Create" or event['RequestType'] == "Update":
+                          # Upload to S3
+                          LOGGER.info("Now uploading %s to S3, Bucket: %s , path: %s" % (file_name,bucket,s3_key))
+                          try:
+                              s3_response = s3.put_object(Body=s3_data, Bucket=bucket, Key=s3_key,ContentType=content_type, CacheControl='no-cache')
+                              LOGGER.info("Uploaded %s to S3, got response : %s " % (file_name,s3_response) )
+                              responseData[file_base_name] = s3_key
+                          except Exception as e:
+                              LOGGER.error("Unable to upload %s to S3, got exception: %s" % (file_name,e))
+                              responseData['Status'] = "Unable to upload %s to S3, got exception: %s" % (file_name,e)
+                              cfnresponse.send(event, context, "FAILED",responseData)
+                              raise Exception("Unable to upload %s to S3, got exception: %s" % (file_name,e))
+
+                      else: # DELETE
+                          try:
+                              s3_response = s3.delete_object(Bucket=bucket,Key=s3_key)
+                              LOGGER.info("Deleted %s from S3, got response : %s " % (file_name,s3_response) )
+                          except Exception as e:
+                              LOGGER.error("Unable to delete %s from S3, got exception: %s" % (file_name,e))
+                              responseData['Status'] = "Unable to delete %s from S3, got exception: %s" % (file_name,e)
+                              cfnresponse.send(event, context, "FAILED",responseData)
+                  else:
+                      LOGGER.info("Got line in manifest.txt that isn't a URL: %s " % (file))
+              responseData['Status'] = "SUCCESS"
+              cfnresponse.send(event, context, "SUCCESS",responseData)
+              return responseData
+
+      Environment:
+        Variables:
+          BUCKET: !Ref S3Bucket
+          APIENDPOINT: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/v1/dashboard-ctrl
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 3
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - S3AccessPolicy
+
+  ChannelMapUpdaterFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Channel configuration API handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        ZipFile: |
+          '''
+          Copyright (c) 2021 Scott Cunningham
+
+          Permission is hereby granted, free of charge, to any person obtaining a copy
+          of this software and associated documentation files (the "Software"), to deal
+          in the Software without restriction, including without limitation the rights
+          to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+          copies of the Software, and to permit persons to whom the Software is
+          furnished to do so, subject to the following conditions:
+
+          The above copyright notice and this permission notice shall be included in all
+          copies or substantial portions of the Software.
+
+          THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+          IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+          FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+          AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+          LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+          OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+          SOFTWARE.
+
+          Summary: This script is a custom resource to place the HTML pages and Lambda code into the destination bucket.
+
+          Original Author: Scott Cunningham
+          '''
+
+          import json
+          import logging
+          import boto3
+          import os
+          import urllib3
+          from urllib.parse import urlparse
+          from zipfile import ZipFile
+          import cfnresponse
+
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
+          MANIFESTMODIFY="True"
+
+          def lambda_handler(event, context):
+
+              ## Log the incoming event
+              LOGGER.info("Event : %s " % (event))
+
+              ## Create Response Data Dictionary for the CloudFormationn response
+              responseData = dict()
+
+              ## Initialize S3 boto3 client
+              s3 = boto3.client('s3')
+
+              # environment variables
+              bucket = os.environ['BUCKET']
+              s3_key = os.environ['CONFIG_KEY']
+              api_ctrl = os.environ['APICTRL']
+
+              LOGGER.info("Environment Variable : S3 Bucket : %s " % (bucket))
+              LOGGER.info("Environment Variable : S3 Key : %s " % (s3_key))
+              LOGGER.info("Environment Variable : API Ctrl : %s " % (api_ctrl))
+
+              # "RequestType": "Create"
+              if event['RequestType'] == "Create" or event['RequestType'] == "Update":
+                  # Get Channel Map JSON from S3
+                  LOGGER.info("Now getting Channel map json from S3")
+                  try:
+                      s3_response = s3.get_object(Bucket=bucket, Key=s3_key)
+                      LOGGER.info("Got object from S3")
+                  except Exception as e:
+                      LOGGER.error("Unable to get object from S3, got exception: %s" % (e))
+                      responseData['Status'] = "Unable to get object from S3, got exception: %s" % (e)
+                      return cfnresponse.send(event, context, "FAILED",responseData)
+                      raise Exception("Unable to get object from S3, got exception: %s" % (e))
+
+                  # print s3 response
+                  LOGGER.info("s3 object: %s " % (s3_response))
+
+                  # Edit json with deployment information
+                  s3_data = json.loads(s3_response['Body'].read())
+                  s3_data['control_api_endpoint_url'] = api_ctrl
+                  api_endpoint_parse = urlparse(api_ctrl)
+                  s3_data['control_api_endpoint_host_header'] = api_endpoint_parse.netloc
+
+                  content_type = "application/json"
+
+                  # Put S3 Object back to bucket with changes
+                  LOGGER.info("Now putting Channel map json back to S3")
+                  try:
+                      s3_response = s3.put_object(Body=json.dumps(s3_data), Bucket=bucket, Key=s3_key,ContentType=content_type, CacheControl='no-cache')
+                      LOGGER.info("Put object to S3")
+                      responseData['copy'] = s3_key
+                  except Exception as e:
+                      LOGGER.error("Unable to get object from S3, got exception: %s" % (e))
+                      responseData['Status'] = "Unable to get object from S3, got exception: %s" % (e)
+                      return cfnresponse.send(event, context, "FAILED",responseData)
+                      raise Exception("Unable to get object from S3, got exception: %s" % (e))
+
+              else: # DELETE
+                  LOGGER.info("Nothing to do when DELETE stack command is used")
+
+
+              responseData['Status'] = "SUCCESS"
+              cfnresponse.send(event, context, "SUCCESS",responseData)
+              return responseData
+
+      Environment:
+        Variables:
+          BUCKET: !Ref S3Bucket
+          CONFIG_KEY: !GetAtt FileMover.channel_map
+          APICTRL: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-ctrl
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - ApiGateway
+
+    #################
+    ## EC2
+    #################
+
+  VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
+      PrivateDnsEnabled: true
+      SubnetIds: !Ref SubnetToDeployApiInterface
+      VpcId: !Ref VpcToDeployInto
+      VpcEndpointType : Interface
+      SecurityGroupIds: !Ref InterfaceEndpointSecurityGroups
+
+
+    #################
+    ## API Gateway
+    #################
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub ${AWS::StackName}-emlctrl-api-handler
+      Description: !Sub API Handler [${AWS::StackName}]
+      EndpointConfiguration:
+        Types:
+          - PRIVATE
+        VpcEndpointIds:
+          - !Ref VPCEndpoint
+      Policy: !Sub
+        |-
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "execute-api:Invoke",
+                    "Resource": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*"
+                },
+                {
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Action": "execute-api:Invoke",
+                    "Resource": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*",
+                    "Condition": {
+                        "StringNotEquals": {
+                            "aws:SourceVpc": "${VpcToDeployInto}"
+                        }
+                    }
+                }
+            ]
+        }
+
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+  ProxyPlusResourceCtrl:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: 'dashboard-ctrl'
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  ProxyPlusResourceCfgRoot:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: 'dashboard-cfg'
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  ProxyPlusResourceCfgProxy:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref ProxyPlusResourceCfgRoot
+      PathPart: '{proxy+}'
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  AnyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: ANY
+      Integration:
+        #Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Type: AWS_PROXY
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt MediaLiveControlConfig.Arn
+            - /invocations
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: !Ref EmptyApiModel
+      ResourceId: !Ref ProxyPlusResourceCfgProxy
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  GetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        #Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Type: AWS_PROXY
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt MediaLiveControlFunctions.Arn
+            - /invocations
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: !Ref EmptyApiModel
+      ResourceId: !Ref ProxyPlusResourceCtrl
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  PutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: PUT
+      Integration:
+        #Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Type: AWS_PROXY
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt MediaLiveControlFunctions.Arn
+            - /invocations
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: !Ref EmptyApiModel
+      ResourceId: !Ref ProxyPlusResourceCtrl
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  OptionsForCors:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,PUT,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: true
+      ResourceId: !Ref ProxyPlusResourceCtrl
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  EmptyApiModel:
+    Type: AWS::ApiGateway::Model
+    Properties:
+      ContentType: application/json
+      Description: This is a default empty schema model
+      RestApiId: !Ref ApiGateway
+      Schema: {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Empty Schema",
+        "type": "object"
+      }
+
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      Description: Production Deployment of Api Endpoint
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - AnyMethod
+      - GetMethod
+      - PutMethod
+      - ApiGateway
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref Deployment
+      RestApiId: !Ref ApiGateway
+      StageName: v1
+    DependsOn:
+      - ApiGateway
+
+    #################
+    ## CloudFront
+    #################
+
+  CloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub CloudFront OAI for Bucket ${S3Bucket}
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub Distribution for stack ${AWS::StackName}
+        Enabled: True
+        HttpVersion: http2
+        Origins:
+          - DomainName: !Sub ${S3Bucket}.s3.${AWS::Region}.amazonaws.com
+            Id: !Ref S3Bucket
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontOAI}
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: !Ref S3Bucket
+          ViewerProtocolPolicy: redirect-to-https
+          DefaultTTL: 2
+          MinTTL: 2
+          MaxTTL: 2
+          ForwardedValues:
+            QueryString: True
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+    DependsOn:
+      - CloudFrontOAI
+
+
+#################################
+# Outputs
+#################################
+
+Outputs:
+  DashboardUrl:
+    Description: Dashboard URL for MediaLive control
+    #Value: !Sub https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/${FileMover.ui}
+    Value: !Sub https://${CloudFrontDistribution.DomainName}/${FileMover.ui}
+
+  APIEndpointURLGetSample:
+    Description: API Endpoint for getting sample configuration, method - GET
+    #Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/${ProxyPlusResourceCfgRoot.PathPart}/template
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !Ref ApiGateway
+        - '.execute-api.'
+        - !Ref 'AWS::Region'
+        - '.amazonaws.com/'
+        - !Ref ApiStage
+        - '/dashboard-cfg/template'
+
+  APIEndpointURLGetConfig:
+    Description: API Endpoint for getting existing configuration, method - GET
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-cfg/existing
+
+  APIEndpointURLPutConfig:
+    Description: API Endpoint for updating existing configuration, method - PUT
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-cfg/update
+
+  #APIEndpointURLCTRL:
+  #  Description: API Endpoint to control the MediaLive channels. This URL is needed when updating the config
+  #  Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-ctrl
+

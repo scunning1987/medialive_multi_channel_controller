@@ -1,0 +1,272 @@
+/*
+<div id="deployment_title"></div>
+<div id="multiviewer"></div>
+<div id="channel_control"></div>
+<div id="preview_window"></div>
+<div id="selected_channel_info"></div>
+<div id="deployment_info"></div>
+*/
+// master elements position
+
+html * {
+  font: Verdana, Calibri, Arial;
+  font-family: Verdana, Calibri, Arial;
+}
+body {
+  font: Verdana, Calibri, Arial;
+  font-family: Verdana, Calibri, Arial;
+}
+h3 {
+  font: Verdana, Calibri, Arial;
+  font-family: Verdana, Calibri, Arial;
+  color:#595959;
+}
+.common {
+  position: absolute;
+  display:inline-block;
+  font-family: Verdana, Calibri, Arial;
+}
+td{
+  text-align:center;
+}
+#deployment_title {
+  position: absolute;
+  top: 0px;
+  height: 80px;
+  width: 100%;
+  background-color:white;
+  color:#595959
+}
+#lower_body {
+  position:absolute;
+  top:80px;
+  height:980px;
+  width:100%;
+  background-image:linear-gradient(to bottom, #e6f7ff, #ffffff);
+}
+#clock_wrapper{
+  border-bottom:3px solid #cccccc;
+  height:40px;
+  display:block;
+  width:1500px;
+  margin:auto;
+  background-image:linear-gradient(to bottom, #e6f7ff, #ffffff);
+}
+
+#channel_selector_wrapper {
+  position:relative;
+  display:inline-block;
+  float:left;
+  height:80px;
+  width:810px;
+}
+#channel_status {
+  position:relative;
+  display:inline-block;
+  width:400px;
+  float:left;
+}
+
+#channels_body{
+  display:block;
+  width:1500px;
+  margin:auto;
+  border-top:3px solid #cccccc;
+  border-bottom:3px solid #cccccc;
+}
+#controls_body{
+  position:relative;
+  display:block;
+  margin:auto;
+  height: 500px;
+  width: 1500px;
+}
+
+#channel_control {
+  position: relative;
+  float:left;
+  margin-top:10px;
+  height: 320px;
+  width: 700px;
+}
+#selected_channel_info {
+  float:left;
+  position: relative;
+  height: 320px;
+  width: 680px;
+  margin: 10px 0px 0px 110px;
+  overflow:scroll;
+  border: 1px solid #ccc;
+}
+#channel_info_header{
+  width:100%;
+  background-color: #f1f1f1;
+  display:inline-block;
+  border-bottom: 1px solid #ccc;
+  padding: 14px 47px;
+}
+#channel_info {
+  padding: 14px 47px;
+}
+#player-wrp-2, #vu-meter-1 {
+  margin-left:25px;
+}
+.player-wrp{
+  display:inline-block;
+  position:relative;
+  width:750;
+  height:400;
+  background-color:black;
+
+  margin-top:20px;
+}
+.vu-meter-wrp {
+  display:inline-block;
+  width: 60px;
+  height: 360px;
+  margin-top:20px;
+}
+#clock {
+    text-align: center;
+    font-size: 18px;
+    font-family: Verdana;
+    width:1500px;
+    margin-top:0px;
+    margin-bottom:0px;
+    padding:0px;
+    position:relative;
+    color:#595959;
+ }
+#password-container {
+ position:absolute;
+ display:inline;
+ bottom:20px;
+ left:10px;
+}
+
+/* Style the tab */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+}
+#togglecontrols{
+  margin-top:20px;
+  display: inline-block;
+}
+#togglemultiviewer{
+margin-top:20px;
+margin-left: 20px;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 47px;
+  transition: 0.3s;
+  font-size: 17px;
+}
+
+/* Change background color of buttons on hover */
+.tab button:hover {
+  background-color: #ddd;
+}
+
+/* Create an active/current tablink class */
+.tab button.active {
+  background-color: #ccc;
+}
+
+/* Style the tab content */
+.tabcontent {
+  display: none;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-top: none;
+  height:260px;
+}
+.channel_info_text {
+  padding: 10px;
+  font-size:12px;
+}
+.shrinkmultiviewer{
+  height:400px;
+  overflow-y: scroll;
+}
+.expandmultiviewer{
+  max-height:800px;
+  overflow-y: scroll;
+}
+
+.control_buttons {
+  background-color: inherit;
+  float: left;
+  width:100px;
+  margin-bottom:10px;
+  outline: none;
+  cursor: pointer;
+  padding: 10px 20px;
+  transition: 0.3s;
+  font-size: 17px;
+  border: 1px solid #ccc;
+}
+.bumper_buttons {
+  position:relative;
+  margin-top:10px;
+  background-color: inherit;
+  width:95px;
+  margin-bottom:10px;
+  outline: none;
+  cursor: pointer;
+  padding: 10px 20px;
+  transition: 0.3s;
+  font-size: 17px;
+  border: 1px solid #ccc;
+}
+bumper_prepare {
+  top:100px
+}
+bumper_insert {
+  top:130px
+}
+#stop {
+  margin-left:10px;
+}
+.previewhyperlinks {
+  position:absolute;
+  cursor:pointer;
+  display:inline;
+  bottom:10px;
+  margin-left:50px;
+}
+.pressedbutton{
+  background-color:green;
+}
+.bumper {
+  margin-left:20px;
+}
+.control_buttons:hover {
+  background-color: #ddd;
+}
+.pipspressed {
+  box-shadow: 5px;
+  background-color:yellow;
+  border: 1px solid yellow;
+}
+.pipalert {
+  border: 4px solid red;
+  box-shadow: 5px;
+  background-color:red;
+}
+.pipsstream {
+  box-shadow: 5px;
+  background-color:green;
+  border: 4px solid green;
+}
+.dropdowns {
+  padding: 10px;
+}

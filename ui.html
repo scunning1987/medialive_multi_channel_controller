@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<title>EML CTRL</title>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <link href="style.css" rel="stylesheet">
+    <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
+    <script src='sldp-v2.18.1.min.js' type='text/javascript'></script>
+</head>
+<body onload="pageLoadFunction()" >
+
+<div id="deployment_title" class="common"></div>
+
+<div id="lower_body">
+
+    <div class="expandmultiviewer" id="channels_body">
+        <!--<div class="sldp_wrapper" id="sldp_player1_wrapper"></div>-->
+        <div id="multiviewer"></div>
+        <div id="vu-meter-1" class='vu-meter-wrp'></div>
+        <div class="player-wrp" id="player-wrp-1"></div>
+
+        <div class="player-wrp" id="player-wrp-2"></div>
+        <div id="vu-meter-2" class='vu-meter-wrp'></div>
+    </div>
+
+
+
+    <div id="controls_body">
+        <div id="clock_wrapper">
+            <div id="clock"></div>
+        </div>
+        <div id="channel_selector_wrapper"><button onclick="togglecontrols()" id="togglecontrols">View Controls</button><button id="togglemultiviewer" onclick="togglemultiviewer()">Back to Multiviewer</button><div id="insertconfirmmessage" style="color:red"></div></div>
+
+        <div id="channel_status"><h3>Channel Status: </h3></div>
+
+        <div id="channel_control" class="common">
+            <div id="menu_tabs" class="tab">
+                <button class="tablinks" onclick="mediaLiveControl(event,'chstartstop')">Start/Stop</button>
+                <button class="tablinks" onclick="mediaLiveControl(event,'livestatic')">Live/Static</button>
+                <button class="tablinks" onclick="mediaLiveControl(event,'vodslate')">VOD/Slate</button>
+                <button class="tablinks" onclick="mediaLiveControl(event,'bumper')">Bumpers</button>
+            </div>
+            <div id="chstartstop" class="tabcontent">
+                <h3>Individual Channel Start/Stop Control</h3>
+                <p>Select a channel start or stop function.</p>
+                <button class="control_buttons" id="start" onclick="chstartstopcontrol('start')">Channel Start</button>
+                <button class="control_buttons" id="stop" onclick="chstartstopcontrol('stop')">Channel Stop</button>
+                <div id="password-container"><label for="passwordbox">Supervisor password:</label><input type="password" id="passwordbox"></div>
+            </div>
+            <div id="livestatic" class="tabcontent">
+                <h3>Live input scheduling control </h3>
+                <p>Immediate switch to LIVE sources attached to channel</p>
+                <div id="live_source_dropdown_label">Live Source:</p></div>
+                <div id="live_source_dropdown" class="dropdowns"><select id="live_source_dropdown_select" name="sources"></select></div>
+                <button class="control_buttons" id="live" onclick="chliveswitch()">Switch Now</button>
+            </div>
+            <div id="vodslate" class="tabcontent">
+                <h3>VOD scheduling control</h3>
+                <p>Immediate switch to VOD sources in available S3 bucket</p>
+                <div id="bucket_label">Objects :</p></div>
+                <div id="vod_source_dropdown" class="dropdowns"><select id="vod_source_dropdown_select" name="vsources"></select></div>
+                <button class="control_buttons" id="vod" onclick="chvodswitch()">Switch Now</button>
+            </div>
+            <div id="bumper" class="tabcontent">
+                <h3>Bumpers Insert</h3>
+                <div id="bumper_groups_dropdown" class="dropdowns"><select id="bumper_groups_dropdown_select" onchange="bumperPopulator(this.value)" name="bumpersources"></select></div>
+                <div id="bumperprepare"></div>
+                <div id="bumperinsert"></div>
+            </div>
+        </div>
+        <div id="selected_channel_info" class="common">
+            <div id="channel_info_header" class="tabs tablinks">Channel Information</div>
+
+            <div id="channel_info"><p> </p></div>
+
+        </div>
+    </div>
+</div>
+<script src="functions.js"></script>
+<script src="https://unpkg.com/video.js/dist/video.js"></script>
+</body>
+</html>

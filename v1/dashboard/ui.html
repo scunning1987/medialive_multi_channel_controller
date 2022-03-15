@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<title>OTTAuto</title>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link href="css/style.css" rel="stylesheet">
+<link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
+<link href="css/video-js.css" rel="stylesheet">
+</head>
+<body onload="pageLoadFunction()" >
+
+<div id="deployment_title" class="common"></div>
+
+<div id="lower_body">
+
+  <div id="channels_body">
+    <div id="multiviewer" class="common"></div>
+  </div>
+
+  <div id="controls_body">
+  <div id="channel_control" class="common">
+    <div id="menu_tabs" class="tab">
+      <button class="tablinks" onclick="mediaLiveControl(event,'chstartstop')">Start/Stop</button>
+      <button class="tablinks" onclick="mediaLiveControl(event,'livestatic')">Live/Static</button>
+      <button class="tablinks" onclick="mediaLiveControl(event,'vodslate')">VOD/Slate</button>
+      <button class="tablinks" onclick="mediaLiveControl(event,'promoctrl')">Promo</button>
+    </div>
+    <div id="chstartstop" class="tabcontent">
+      <h3>Individual Channel Start/Stop Control</h3>
+      <p>Select a channel thumbnail, then select the action type</p>
+      <button class="control_buttons" id="start" onclick="chstartstopcontrol('start')">Channel Start</button> 
+      <button class="control_buttons" id="stop" onclick="chstartstopcontrol('stop')">Channel Stop</button> 
+   </div>
+    <div id="livestatic" class="tabcontent">
+      <h3>Live input scheduling control </h3>
+      <p>Immediate switch to LIVE sources attached to channel</p>
+      <div id="live_source_dropdown_label">Live Source:</p></div>
+      <div id="live_source_dropdown" class="dropdowns"><select id="live_source_dropdown_select" name="sources"></select></div>
+      <button class="control_buttons" id="live" onclick="chliveswitch()">Switch Now</button>
+    </div>
+    <div id="vodslate" class="tabcontent">
+      <h3>VOD scheduling control</h3>
+      <p>Immediate switch to VOD sources in available S3 bucket</p>
+      <div id="bucket_label">Objects :</p></div>
+      <div id="vod_source_dropdown" class="dropdowns"><select id="vod_source_dropdown_select" name="vsources"></select></div>
+      <button class="control_buttons" id="vod" onclick="chvodswitch()">Switch Now</button>
+    </div>
+    <div id="promoctrl" class="tabcontent">
+      <h3>Promo Insert</h3>
+      <p>Control functions to insert promo video then return to Live Stream</p>
+      <button class="control_buttons promo" id="promo1" onclick="chpromoins(1)">Promo 1</button>
+      <button class="control_buttons promo" id="promo2" onclick="chpromoins(2)">Promo 2</button>
+      <button class="control_buttons promo" id="promo3" onclick="chpromoins(3)">Promo 3</button>
+      <button class="control_buttons promo" id="promo4" onclick="chpromoins(4)">Promo 4</button>
+    </div>
+  </div>
+  <div id="preview_window" class="common"></div>
+  <div id="selected_channel_info" class="common"></div>
+  </div>
+</div>
+<script src="js/pagefunctions.js"></script>
+<script src="https://unpkg.com/video.js/dist/video.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+{
+  "channel_map": {
+    "1": {
+      "primary_channel_id": 3480897,
+      "proxy_gen_channel": 9424650,
+      "channel_friendly_name": "Soccer Channel 1",
+      "channel_region": "us-west-2",
+      "low_latency_url_source": "wss://internal-ec2-streamer-as-1-1667062841.us-west-2.elb.amazonaws.com/emx/20001",
+      "low_latency_url_medialive": "wss://internal-ec2-streamer-as-1-1667062841.us-west-2.elb.amazonaws.com/eml/20001",
+      "proxy_thumbnail_name":"ui-s3bucket-fvesqgxwb73y/status_thumbnails/ch1.jpg",
+      "mediaconnect_ingress_arn": "arn:aws:mediaconnect:us-west-2:301520684698:flow:1-XFVWAlMLU1tWAw9d-7e4479efd760:Tie202MediaFlowIn1",
+      "mediaconnect_egress_arn": "arn:aws:mediaconnect:us-west-2:301520684698:flow:1-AQdVWwVVWgZUVwxb-8745f489011f:Tie202MediaFlowOut1"
+    }
+  },
+  "bumper_groups": {
+    "Serie A": {
+      "bumpers": [
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Serie A Intro"
+        },
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Serie A First Half"
+        },
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Serie A Second Half"
+        }
+      ]
+    },
+    "Europa League": {
+      "bumpers": [
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Europa League Intro"
+        },
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Europa League second half"
+        }
+      ]
+    },
+    "UEFA Champions League": {
+      "bumpers": [
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "UEFA CL Bumper"
+        }
+      ]
+    },
+    "Europa Conference League": {
+      "bumpers": [
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Europa CL Intro"
+        },
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Europa CL Halftime"
+        },
+        {
+          "s3uri": "s3://cunsco-media/vod_slates/promo1.mp4",
+          "description": "Europe CL Outro"
+        }
+      ]
+    }
+  },
+  "vod_bucket":"schedule-action-assets",
+  "bumper_bucket_region": "us-west-2",
+  "control_api_endpoint_url": "https://j4b8bhx380-vpce-07845f22b3628bd5a.execute-api.us-west-2.amazonaws.com/v1/dashboard-ctrl",
+  "dashboard_title":"My Streaming Dashboard - v2"
+}

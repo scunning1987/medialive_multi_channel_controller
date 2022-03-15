@@ -1,76 +1,56 @@
-# MediaLive Multi-Channel Controller
-## Summary
-This solution was designed to provide universal operation of multiple MediaLive channels. Offering real-time visibility into the channel state, allowing for channel controls, and confidence monitoring of the channel outputs. The AWS services utilized in this process besides AWS Elemental MediaLive, include Amazon API Gateway, AWS Lambda, Amazon S3, Amazon CloudWatch.
+# MediaLive Channel Controller
 
-The solution consists of 3 workflows that need to be configured to work in unison. The first workflow requires an Amazon S3 bucket, and then involves the creation of a MediaLive channel with an ABR output as well as a “Frame Capture to JPG” output, writing to the S3 bucket. Lastly, an AWS Lambda function is required to perform JPG name rewrites for every PUT action performed by MediaLive. This is because MediaLive increments the naming of the JPG’s it writes to S3, which is not suitable for an HTML monitoring page that expects a static JPG URL to GET.
+## Overview
 
-The second workflow is the deployment of the HTML control page. This requires an Amazon S3 bucket (which can be the same as the bucket used in workflow 1). Then an AWS Lambda function and API Gateway endpoint must be created to perform control actions on the services.
+This is a solution designed for companies or individuals that have a need to do accurate source switching on their live event channels. The full-features MediaLive Scheduling API/SDK makes this possible. Other core AWS services have been used to create a very robust and lightweight solution.
 
-The last part of the workflow involves the use of overwriting channel JPG’s to show the operator the current channel state. A CloudWatch event rule must be setup to trigger a Lambda function that will read the event detail, then write the corresponding JPG to the channel status JPG name
+## Architecture
 
-Note that the solution supports MediaLive channels in multiple regions. However, in order for the solution to work correctly, each region that a MediaLive channel has been deployed into needs to have a CloudWatch event rule and AWS Lambda deployed.
+![](images/workflow-with-lowlatency-preview-arc.png?width=60pc&classes=border,shadow)
 
-![](images/dashboard-sample.png?width=60pc&classes=border,shadow)
+This solution has been designed to deploy around an existing video pipeline. The architecture drawing shows a fully redundant video pipeline that utilizes the MediaLive Controller solution to enrich the live stream experience.
 
-## Architecture Overview
-### High Level
-![](images/Architecture_001.png?width=60pc&classes=border,shadow)
+If you are wanting to deploy an entire solution from scratch, here are the steps:
 
-### MediaLive JPG Rename
-This part of the workflow focuses on MediaLive, Amazon S3, CloudWatch, and AWS Lambda. The goal is to rename incrementing namings of MediaLive JPG outputs to a predictable static name...
+1. Deploy your video pipeline.. This readme doesn't contain instructions for that. Check out [this blog post](https://aws.amazon.com/blogs/media/awse-quickly-creat-live-streaming-channel-aws-elemental-medialive-workflow-wizard/) that features the *Workflow Wizard*, a Media Services tool used to deploy all required components
 
-1. MediaLive channel contains multiple outputs, one of which is required to be the "Frame Capture to JPEG" for use with the MediaLive Controller UI. MediaLive creates thumbnails at pre-defined intervals and PUT's them on S3. MediaLive increments the suffix of the filename for every PUT. 
-2. An S3 PUT event trigger invokes a Lambda function to run 
-3. The Lambda copies the filename of the JPG that was just uploaded (ie. status000001.jpg) to a pre-defined location for the channel status jpg (ie. s3://cunsco/medialive/channel1/status.jpg). Lambda then deletes the originally uploaded file.
+2. Deploy this *MediaLive Controller* solution, by using the CloudFormation template provided below. The services used include Amazon CloudFront, Amazon S3, Amazon API Gateway, AWS Lambda
 
-![](images/Architecture_002.png?width=60pc&classes=border,shadow)
+3. Deploy a couple of EC2 instances to act as *low latency streamers* for the MediaLive Controller solution
 
-### Operation and Control Functions
-This part of the workflow focuses on the operator UI on S3, Amazon API Gateway, AWS Lambda, Amazon CloudWatch and MediaLive. The MediaLive channels need to be created (and optionally MediaPackage, CloudFront optional), the MediaLive controller Lambda function, and Amazon API Gateway endpoint must be deployed. Lastly, the Javascript file for the operator UI needs to be edited, then deployed in Amazon S3 with the HTML, CSS, and other channel state JPG's (starting, stopped, stopping)
+4. Configure your MediaLive channels to send proxy streams to the EC2 instances
 
-![](images/Architecture_003.png?width=60pc&classes=border,shadow)
+5. Configure CloudFront to serve the low latency stream from your EC2 instances, an origin group is recommended
 
-### Channel State Change "JPG" Updates
-MediaLive takes time to start and stop, usually up to 2 minutes.. Operators like to see feedback almost instantly after performing actions such as starting and stopping channels. To solve this problem, a CloudWatch event rule needs to be setup to capture these channel event types, and invoke a Lambda to replace the channel's 'status.jpg' with a static channel state jpg. This channel state jpg will them remain on S3 until the channel is in a running state and starts overwriting the S3 status.jpg
+6. Add AWS WAF as a layer of security
 
-![](images/Architecture_004.png?width=60pc&classes=border,shadow)
+## How To Deploy
+### Deploy your video pipeline
+As mentioned above, this guide doesn't contain instructions for that. Go to the blog post mentioned for easy deployment, or pick an existing video pipeline to add this solution to
 
-## Limitations, Restrictions, and Assumptions
-* MediaLive channels must have at least 1 static input and at least 1 dynamic MP4 input (see details in MediaLive section). It is preferred to have 2 dynamice MP4 inputs (one set to LOOP, one set to CONTINUE behavior)
-* AWS Lambda must be able to change ACL on files to 'public-read'. If this violates your security protocols, you can remove this option from the Lambda functions (MediaLiveJPGRenamer) and need to deploy a CloudFront distribution to serve the Controller UI and JPG's publicly
-* S3 bucket(s)  Block all public access must be off. If this is a security concern, you can optionally deploy a CloudFront distribution to serve the MediaLive controller UI and JPG's from CloudFront
-* If CloudFront is used, disable caching (using behavior policies). No instructions are provided in this solution for CloudFront
-* The channel preview player only works with unencrypted HLS
-* The channel preview player is videoJS
+### Deploy the MediaLive Controller
+This solution is deployed via CloudFormation, it utilizes the following services:
+- AWS IAM
+- AWS Lambda
+- Amazon API Gateway
+- Amazon CloudFront
+- Amazon S3
 
-## AWS Services
-The AWS Services used for this workflow:
+1. Download the CloudFormation template [here](./medialive_multi_channel_controller.yaml)
 
-* IAM 
-* AWS Lambda
-* Amazon API Gateway
-* Amazon CloudWatch
-* AWS Elemental MediaPackage 
-* AWS Elemental MediaLive
-* Amazon S3
-* Amazon WAF (Web Application Firewall)
+2. Login to the AWS Console and open the CloudFormation service console
 
-## Deployment Instructions
-### CloudFormation
-**Coming Really Soon**
+3. Select the **Create stack** button, then select *with new resources*
 
-### Required MediaLive channel Configuration
-#### Thumbnail Output
-Required for multiviewer style viewing of the stream
+4. In step 1 of the create stack wizard, select *Upload a template file*, then browse to the CloudFormation template you downloaded, then select Next
 
-*instructions coming soon*
+5. Give the stack a name. Some of the services that deploy may use this name when creating resources. Most services will use this name as a Tag identifier.
 
-#### HLS Output
-*Output to MediaPackage, MediaStore, or other is acceptable, we just need to know the master m3u8
+6. Provide a valid S3 policy for an S3 bucket that contains media to be used in this workflow. You can leave the default value if you like, this will just allow the solution to READ from any S3 bucket in the account. Select Next
 
-### Submitting Channel Config to the system
-The solution has a custom API listening for channel configuration updates. This config then gets pushed to the system and the HTML page is updated with the new channnel layout. A refresh is required
+7. All options on this page are optional, please look through them and only use if necessary. Select Next
 
-#### Example API call with POST data
+8. This is the review page outlining summary of the wizard. At the bottom there is a checkbox that you have to acknowledge. This is specifying that the CloudFormation stack will make IAM changes; an IAM role is created, and an IAM policy is attached to it. This is necessary for Lambda to perform the necessary control functions on the MediaLive channel(s)
 
-*Coming soon*
+9. Select **Create stack**
+

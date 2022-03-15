@@ -1,0 +1,1198 @@
+AWSTemplateFormatVersion: "2010-09-09"
+# Transform: Count
+
+Parameters:
+
+  Prefix:
+    Type: String
+    Default: Tie009
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9]*
+    Description: Prefix to append to all Names Created ; expected value example "TieLine002"
+
+  VpcToDeployInto:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC Identifier
+
+  AZ1:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2a
+    Description: Target AZ for first HA deployment - IMPORTANT this MUST match the target Subnet for SUBNET1a-b
+
+  Subnet1:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-feb95286
+    Description: Subnet(s) to deploy MediaConnenct and MediaLive VPC Endpoints into
+
+  Subnet2:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-feb95286
+    Description: Subnet(s) to deploy secondary MediaLive VPC endpoint. this is not used, however it is required in order to create the input in MediaLive
+
+  MediaLiveSGs:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Target SGs to apply to MediaLive Inputs
+
+  MediaConnectInterfaceSG:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Target SGs to apply to MediaConnect VPC endpoints
+
+  InputProtocol:
+    Type: String
+    Default: rtp
+    AllowedValues:
+      - "zixi-push"
+      - "rtp-fec"
+      - "rtp"
+      - "rist"
+    Description: Target input protocol that is expected from the source stream (if UDP - you will need a zixi conversion ec2, and this will be zixi-push)
+
+  ThumbnailBucket:
+    Type: String
+    Default: ui-s3bucket-fvesqgxwb73y
+    Description: Please enter the S3 bucket name that MediaLive will output its JPEG outputs to. This S3 Bucket MUST be the bucket deployed by the operator dashboard CloudFormation Template
+
+  EC2StreamerIPSubnet1:
+    Type: String
+    Default: 0.0.0.0
+    Description: Enter the private IP address of the low latency streamer in Subnet A
+
+  EC2StreamerProxyPort:
+    Type: String
+    Default: 20010
+    Description: Enter the Port number that the EC2 streamer is listening on for this channel
+
+  EC2StreamerDistributionPort:
+    Type: String
+    Default: 21010
+    Description: Enter the Port number that the EC2 streamer is listening on for this channel
+
+  GroundListener1:
+    Type: String
+    Default: 0.0.0.0:5000
+    Description: Enter the IP and port of the receiver on the ground
+
+  IAMRoleForLambda:
+    Description: Enter the role arn for Lambda that was created in the UI CloudFormation template, you can get this from the outputs section of the deployed stack
+    Type: String
+    Default: arn:aws:iam::301520684698:role/ui-LambdaRole-S26J0KXQR7QW
+
+  MediaFlowIngestPort1:
+    Description: Inbound port for MediaConnect Flow1
+    Type: String
+    Default: 5000
+
+  IAMRoleForMediaLive:
+    Description: This is the role created by the bumpers ui CloudFormation stack for MEDIALIVE. Paste the ARN in the value field.
+    Type: String
+    Default: arn:aws:iam::xxxxxxxxxxxx:role/MediaLiveAccessRole
+
+  IAMRoleForMediaConnect:
+    Description: This is the role created by the bumpers ui CloudFormation stack for MEDIACONNECT. Paste the ARN in the value field.
+    Type: String
+    Default: arn:aws:iam::xxxxxxxxxxxx:role/MediaConnect
+
+Resources:
+
+  ###
+  ###  Custom Resources
+  ###
+
+  MediaConnectToGround1IPUpdates:
+    Type: Custom::LambdaInvokerToUpdateMediaConnectEgressFlowOutputs
+    Properties:
+      ServiceToken: !GetAtt MediaConnnectToGround.Arn
+      FLOWARN: !Ref MediaFlowOut1
+      GROUNDLISTENER1: !Ref GroundListener1
+      # Output : flow_source_ip
+      # Output: flow_source_port
+    DependsOn:
+      - MediaFlowOut1
+      - EMX1Interface1
+      - EMX1Interface2
+
+  MediaConnect1ToMediaLiveIPUpdates:
+    Type: Custom::LambdaInvokerToUpdateMediaConnectIngressFlowOutputs
+    Properties:
+      ServiceToken: !GetAtt MediaConnnectToMediaLive.Arn
+      FLOWARN: !Ref MediaFlowIn1
+      AZ: !Ref AZ1
+      MEDIALIVEDISTRIBUTION: !Ref ML1EMXInputDistribution
+      MEDIALIVEPROXY: !Ref ML1EMXInputProxy
+      # Output : flow_source_ip
+      # Output: flow_source_port
+    DependsOn:
+      - MediaFlowIn1
+      - EMX1Interface2
+      - EMX1Interface1
+
+  ###
+  ### Lambda
+  ###
+
+  MediaConnnectToGround:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: index.lambda_handler
+      Role: !Ref IAMRoleForLambda
+      Code:
+        ZipFile: |
+
+
+          import json
+          import boto3
+          import logging
+          import cfnresponse
+
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
+
+
+          def lambda_handler(event, context):
+              LOGGER.info("Received custom resource event : %s" % (event))
+
+              # Create Response Data Dictionary for the CloudFormationn response
+              responseData = dict()
+
+              # Flow Arn passed as env variable
+              try:
+                  flow_arn = event['ResourceProperties']['FLOWARN']
+                  media_connect_flow_output_1 = event['ResourceProperties']['GROUNDLISTENER1']
+              except Exception as e:
+
+                  responseData['Status'] = "Unable to get event variables, got exception : %s " % (e)
+                  LOGGER.error("Unable to get event variables, got exception : %s " % (e))
+                  cfnresponse.send(event, context, "FAILED",responseData)
+                  return "Unable to get event variables, got exception : %s " % (e)
+
+
+              # Initialize boto3 MediaConnect client
+              emx = boto3.client('mediaconnect')
+
+
+              if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                  ####
+                  #### CREATE
+                  ####
+
+                  ##### ADD VPC FLOW SOURCE
+
+                  try:
+
+                      LOGGER.info("Attempting to update source to use VPC interface...")
+
+                      # Describe flow
+                      response = emx.describe_flow(FlowArn=flow_arn)
+
+                      # flow name
+                      flow_name = response['Flow']['Name']
+
+                      # Source Arn
+                      flow_source_arn = response['Flow']['Sources'][0]['SourceArn']
+
+
+                      # Ingest Port
+                      ingest_port = response['Flow']['Sources'][0]['IngestPort']
+
+                      # VPC Interface
+                      vpc_interface_name = response['Flow']['VpcInterfaces'][0]['Name']
+
+                      # Update flow source #
+                      response = emx.update_flow_source(FlowArn=flow_arn,VpcInterfaceName=vpc_interface_name,SourceArn=flow_source_arn)
+
+                  except Exception as e:
+
+                      responseData['Status'] = "Unable to modify source, got exception : %s " % (e)
+                      LOGGER.error("Unable to modify source, got exception : %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to modify source, got exception : %s " % (e)
+
+                  ##### ADD VPC FLOW OUTPUTS
+
+                  flow_outputs = []
+                  flow_outputs.append(media_connect_flow_output_1)
+
+                  outputs = []
+
+                  try:
+
+                      LOGGER.info("Attempting to add VPC outputs...")
+
+                      for flow_output in flow_outputs:
+                          if ":" in flow_output:
+                              ip = flow_output.split(":")[0]
+                              port = flow_output.split(":")[1]
+                              output_name = flow_name + ip.replace(".","") + port
+                              LOGGER.info("VPC Output: %s:%s" % (ip,port))
+
+                              output = dict()
+                              output['Description'] = "Output to Bristol, IP %s and port %s" % (ip,port)
+                              output['Destination'] = ip
+                              output['Name'] = output_name
+                              output['Port'] = int(port)
+                              output['Protocol'] = "rtp-fec"
+                              output['VpcInterfaceAttachment'] = {'VpcInterfaceName': vpc_interface_name }
+
+                              outputs.append(output)
+
+                      response = emx.add_flow_outputs(FlowArn=flow_arn,Outputs=outputs)
+                  except Exception as e:
+                      responseData['Status'] = "Unable to add VPC Outputs, got exception : %s " % (e)
+                      LOGGER.error("Unable to add VPC Outputs, got exception : %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to add VPC Outputs, got exception : %s " % (e)
+
+                  try:
+
+                      # Get new source IP
+                      # Describe flow
+                      response = emx.describe_flow(FlowArn=flow_arn)
+
+                      flow_source_ip = response['Flow']['Sources'][0]['IngestIp']
+                      flow_source_port = response['Flow']['Sources'][0]['IngestPort']
+                      responseData['flow_source_ip'] = flow_source_ip
+                      responseData['flow_source_port'] = flow_source_port
+
+                  except Exception as e:
+                      LOGGER.error("Unable to verify flow vpc source ip, got exception: %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to verify flow vpc source ip, got exception: %s " % (e)
+
+
+                  responseData['Status'] = "SUCCESS"
+
+                  cfnresponse.send(event, context, "SUCCESS",responseData)
+                  return responseData
+
+              elif event['RequestType'] == 'Delete':
+                  ####
+                  #### DELETE
+                  ####
+
+                  ##### UPDATE FLOW SOURCE
+
+                  try:
+
+                      LOGGER.info("Attempting to delete VPC interface attached to flow...")
+
+                      # Describe flow
+                      response = emx.describe_flow(FlowArn=flow_arn)
+
+                      # flow name
+                      flow_name = response['Flow']['Name']
+
+                      # Source Arn
+                      flow_source_arn = response['Flow']['Sources'][0]['SourceArn']
+
+                      # Ingest Port
+                      ingest_port = response['Flow']['Sources'][0]['IngestPort']
+
+                      # CIDR allow list
+                      cidr = "0.0.0.0/32"
+
+                      # Update flow source #
+                      emx.update_flow_source(FlowArn=flow_arn,SourceArn=flow_source_arn,Protocol='rtp-fec',WhitelistCidr=cidr)
+
+                      LOGGER.info("Removing Flow Outputs")
+
+                      outputs = response['Flow']['Outputs']
+
+                      for output in outputs:
+                          output_arn = output['OutputArn']
+
+                          emx.remove_flow_output(FlowArn=flow_arn,OutputArn=output_arn)
+
+                  except Exception as e:
+
+                      responseData['Status'] = "Unable to modify source, got exception : %s " % (e)
+                      LOGGER.error("Unable to modify source, got exception : %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to modify source, got exception : %s " % (e)
+
+                  cfnresponse.send(event, context, "SUCCESS",responseData)
+                  responseData['Status'] = "SUCCESS"
+                  return responseData
+
+              responseData['Status'] = "Did not receive good event RequestType"
+              cfnresponse.send(event, context, "FAILED",responseData)
+              return responseData
+
+
+      Runtime: python3.8
+      Timeout: 20
+
+  MediaConnnectToMediaLive:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: index.lambda_handler
+      Role: !Ref IAMRoleForLambda
+      Code:
+        ZipFile: |
+
+          import json
+          import boto3
+          import logging
+          import cfnresponse
+
+          LOGGER = logging.getLogger()
+          LOGGER.setLevel(logging.INFO)
+
+
+          def lambda_handler(event, context):
+              LOGGER.info("Received custom resource event : %s" % (event))
+
+              # Create Response Data Dictionary for the CloudFormationn response
+              responseData = dict()
+
+              # Flow Arn passed as env variable
+              try:
+                  flow_arn = event['ResourceProperties']['FLOWARN']
+                  distribution_channel_inputid = event['ResourceProperties']['MEDIALIVEDISTRIBUTION']
+                  proxy_channel_inputid = event['ResourceProperties']['MEDIALIVEPROXY']
+                  az = event['ResourceProperties']['AZ']
+
+                  medialive_inputs = []
+                  medialive_inputs.append({"name":"OutputToEMLDistribution","inputid":distribution_channel_inputid,"smoothinglatency":"6000","ip":"","port":""})
+                  medialive_inputs.append({"name":"OutputToEMLProxy","inputid":proxy_channel_inputid,"smoothinglatency":"0","ip":"","port":""})
+
+
+              except Exception as e:
+
+                  responseData['Status'] = "Unable to get event variables, got exception : %s " % (e)
+                  LOGGER.error("Unable to get event variables, got exception : %s " % (e))
+                  cfnresponse.send(event, context, "FAILED",responseData)
+                  return "Unable to get event variables, got exception : %s " % (e)
+
+
+              # Initialize boto3 MediaConnect client
+              emx = boto3.client('mediaconnect')
+
+              # Initialize boto3 MediaLive client
+              eml = boto3.client('medialive')
+
+
+              if event['RequestType'] == 'Create' or event['RequestType'] == 'Update':
+                  ####
+                  #### CREATE
+                  ####
+
+                  ##### ADD VPC FLOW SOURCE
+
+                  try:
+
+                      LOGGER.info("Attempting to update source to use VPC interface...")
+
+                      # Describe flow
+                      response = emx.describe_flow(FlowArn=flow_arn)
+
+                      # flow name
+                      flow_name = response['Flow']['Name']
+
+                      # Source Arn
+                      flow_source_arn = response['Flow']['Sources'][0]['SourceArn']
+
+
+                      # Ingest Port
+                      ingest_port = response['Flow']['Sources'][0]['IngestPort']
+
+                      # VPC Interface
+                      vpc_interface_name = response['Flow']['VpcInterfaces'][0]['Name']
+
+                      # Update flow source #
+                      response = emx.update_flow_source(FlowArn=flow_arn,VpcInterfaceName=vpc_interface_name,SourceArn=flow_source_arn)
+
+                  except Exception as e:
+
+                      responseData['Status'] = "Unable to modify source, got exception : %s " % (e)
+                      LOGGER.error("Unable to modify source, got exception : %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to modify source, got exception : %s " % (e)
+
+
+                  ##### GET MEDIALIVE INPUT IP AND PORT INFORMATION
+                  # distribution_channel_inputid proxy_channel_inputid
+
+                  flow_outputs = []
+
+                  try:
+
+                      LOGGER.info("Getting MediaLive Input IP and port information")
+
+                      for medialive_input in medialive_inputs:
+                          inputid = medialive_input['inputid']
+
+                          response = eml.describe_input(InputId=inputid)
+
+                          destinations = response['Destinations']
+
+                          for destination in destinations:
+
+                              if destination['Vpc']['AvailabilityZone'] == az:
+                                  # this is the right IP to send to
+                                  medialive_input['ip'] = destination['Ip']
+                                  medialive_input['port'] = destination['Port']
+                                  flow_outputs.append(medialive_input)
+
+                  except Exception as e:
+                      LOGGER.error("Unable to get MediaLive input information, got exception : %s " % (e))
+                      responseData['Status'] = "Unable to get MediaLive input information, got exception : %s " % (e)
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to get MediaLive input information, got exception : %s " % (e)
+
+                  LOGGER.info("Flow Outputs to add to MediaConnect: %s " % (flow_outputs))
+                  ##### ADD VPC FLOW OUTPUTS
+
+                  try:
+
+                      LOGGER.info("Attempting to add VPC outputs...")
+
+                      outputs = []
+                      for flow_output in flow_outputs:
+                          ip = flow_output['ip']
+                          port = flow_output['port']
+                          output_name = flow_output['name']
+                          smoothing_latency = flow_output['smoothinglatency']
+
+                          LOGGER.info("VPC Output: %s:%s" % (ip,port))
+
+                          output = dict()
+                          output['Description'] = "Output to MediaLive, IP %s and port %s" % (ip,port)
+                          output['Destination'] = ip
+                          output['Name'] = output_name
+                          output['Port'] = int(port)
+                          output['Protocol'] = "rtp-fec"
+                          output['VpcInterfaceAttachment'] = {'VpcInterfaceName': vpc_interface_name }
+                          output['SmoothingLatency'] = int(smoothing_latency)
+
+                          outputs.append(output)
+
+                      response = emx.add_flow_outputs(FlowArn=flow_arn,Outputs=outputs)
+                  except Exception as e:
+                      responseData['Status'] = "Unable to add VPC Outputs, got exception : %s " % (e)
+                      LOGGER.error("Unable to add VPC Outputs, got exception : %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to add VPC Outputs, got exception : %s " % (e)
+
+                  try:
+
+                      # Get new source IP
+                      # Describe flow
+                      response = emx.describe_flow(FlowArn=flow_arn)
+
+                      flow_source_ip = response['Flow']['Sources'][0]['IngestIp']
+                      flow_source_port = response['Flow']['Sources'][0]['IngestPort']
+                      responseData['flow_source_ip'] = flow_source_ip
+                      responseData['flow_source_port'] = flow_source_port
+
+                  except Exception as e:
+                      LOGGER.error("Unable to verify flow vpc source ip, got exception: %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to verify flow vpc source ip, got exception: %s " % (e)
+
+
+                  responseData['Status'] = "SUCCESS"
+
+                  cfnresponse.send(event, context, "SUCCESS",responseData)
+                  return responseData
+
+              elif event['RequestType'] == 'Delete':
+                  ####
+                  #### DELETE
+                  ####
+
+                  ##### UPDATE FLOW SOURCE
+
+                  try:
+
+                      LOGGER.info("Attempting to delete VPC interface attached to flow...")
+
+                      # Describe flow
+                      response = emx.describe_flow(FlowArn=flow_arn)
+
+                      # flow name
+                      flow_name = response['Flow']['Name']
+
+                      # Source Arn
+                      flow_source_arn = response['Flow']['Sources'][0]['SourceArn']
+
+                      # Ingest Port
+                      ingest_port = response['Flow']['Sources'][0]['IngestPort']
+
+                      # CIDR allow list
+                      cidr = "0.0.0.0/32"
+
+                      # Update flow source #
+                      emx.update_flow_source(FlowArn=flow_arn,SourceArn=flow_source_arn,Protocol='rtp-fec',WhitelistCidr=cidr)
+
+                      LOGGER.info("Removing Flow Outputs")
+
+                      outputs = response['Flow']['Outputs']
+
+                      for output in outputs:
+                          output_arn = output['OutputArn']
+
+                          emx.remove_flow_output(FlowArn=flow_arn,OutputArn=output_arn)
+
+                  except Exception as e:
+
+                      responseData['Status'] = "Unable to modify source, got exception : %s " % (e)
+                      LOGGER.error("Unable to modify source, got exception : %s " % (e))
+                      cfnresponse.send(event, context, "FAILED",responseData)
+                      return "Unable to modify source, got exception : %s " % (e)
+
+                  cfnresponse.send(event, context, "SUCCESS",responseData)
+                  responseData['Status'] = "SUCCESS"
+                  return responseData
+
+              responseData['Status'] = "Did not receive good event RequestType"
+              cfnresponse.send(event, context, "FAILED",responseData)
+              return responseData
+
+      Runtime: python3.8
+      Timeout: 20
+###
+### MediaConnect
+###
+  MediaFlowIn1:
+    Type: AWS::MediaConnect::Flow
+    Properties:
+      AvailabilityZone: !Ref AZ1
+      Name: !Sub "${Prefix}MediaFlowIn1"
+      Source:
+        Name: !Sub "${Prefix}MediaFlowIn"
+        Description: !Sub ${Prefix} Receiving from ground to AZ ${AZ1}
+        Protocol: rtp
+        IngestPort: !Ref MediaFlowIngestPort1
+        WhitelistCidr: 0.0.0.0/0
+
+  EMX1Interface1:
+    Type: AWS::MediaConnect::FlowVpcInterface
+    Properties:
+      FlowArn: !Ref MediaFlowIn1
+      Name: !Sub "${Prefix}-iface-${AZ1}-${Subnet1}"
+      RoleArn: !Ref IAMRoleForMediaConnect
+      SecurityGroupIds: !Ref MediaConnectInterfaceSG
+      SubnetId: !Ref Subnet1
+
+  MediaFlowOut1:
+    Type: AWS::MediaConnect::Flow
+    Properties:
+      AvailabilityZone: !Ref AZ1
+      Name: !Sub "${Prefix}MediaFlowOut1"
+      Source:
+        Name: !Sub "${Prefix}MediaFlowOut"
+        Description: !Sub ${Prefix} Sending to ground from AZ ${AZ1}
+        Protocol: rtp-fec
+        IngestPort: 5000
+        WhitelistCidr: 0.0.0.0/0
+
+  EMX1Interface2:
+    Type: AWS::MediaConnect::FlowVpcInterface
+    Properties:
+      FlowArn: !Ref MediaFlowOut1
+      Name: !Sub "${Prefix}-iface-${AZ1}-${Subnet1}"
+      RoleArn: !Ref IAMRoleForMediaConnect
+      SecurityGroupIds: !Ref MediaConnectInterfaceSG
+      SubnetId: !Ref Subnet1
+
+###
+### MediaLive
+###
+  ML1EMXInputProxy:
+    Type: AWS::MediaLive::Input
+    Properties:
+      Name: !Sub "${Prefix}-from-MediaConnect-proxy"
+      RoleArn: !Ref IAMRoleForMediaLive
+      Type: RTP_PUSH
+      Vpc:
+        SecurityGroupIds: !Ref MediaLiveSGs
+        SubnetIds:
+          - !Ref Subnet1
+          - !Ref Subnet2
+
+  ML1EMXInputDistribution:
+    Type: AWS::MediaLive::Input
+    Properties:
+      Name: !Sub "${Prefix}-from-MediaConnect-distribution"
+      RoleArn: !Ref IAMRoleForMediaLive
+      Type: RTP_PUSH
+      Vpc:
+        SecurityGroupIds: !Ref MediaLiveSGs
+        SubnetIds:
+          - !Ref Subnet1
+          - !Ref Subnet2
+
+  ML1MP4L:
+    Type: AWS::MediaLive::Input
+    Properties:
+      Name: !Sub "${Prefix}-MP4L"
+      RoleArn: !Ref IAMRoleForMediaLive
+      Type: MP4_FILE
+      Sources:
+        - Url: s3://$urlPath$
+
+  ML1MP4C:
+    Type: AWS::MediaLive::Input
+    Properties:
+      Name: !Sub "${Prefix}-MP4C"
+      RoleArn: !Ref IAMRoleForMediaLive
+      Type: MP4_FILE
+      Sources:
+        - Url: s3://$urlPath$
+        
+  MediaLiveChannelDistribution:
+    Type: 'AWS::MediaLive::Channel'
+    Properties:
+      Name: !Sub ${Prefix}-Distribution
+      ChannelClass: SINGLE_PIPELINE
+      InputSpecification:
+        Codec: AVC
+        MaximumBitrate: MAX_50_MBPS
+        Resolution: HD
+      LogLevel: DISABLED
+      RoleArn: !Ref IAMRoleForMediaLive
+      Vpc:
+        SecurityGroupIds: !Ref MediaLiveSGs
+        SubnetIds:
+        - !Ref Subnet1
+      InputAttachments:
+        - InputId: !Ref ML1EMXInputDistribution
+          InputAttachmentName: MainStream
+          InputSettings:
+            SourceEndBehavior: CONTINUE
+            AudioSelectors:
+              - Name: ap1
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 1
+              - Name: ap2
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 2
+              - Name: ap3
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 3
+              - Name: ap4
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 4
+              - Name: ap5
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 5
+              - Name: ap6
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 6
+              - Name: ap7
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 7
+              - Name: ap8
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 8
+        - InputId: !Ref ML1MP4L
+          InputAttachmentName: LoopMP4
+          InputSettings:
+            SourceEndBehavior: LOOP
+            AudioSelectors:
+              - Name: ap1
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 1
+              - Name: ap2
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 2
+              - Name: ap3
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 3
+              - Name: ap4
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 4
+              - Name: ap5
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 5
+              - Name: ap6
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 6
+              - Name: ap7
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 7
+              - Name: ap8
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 8
+        - InputId: !Ref ML1MP4C
+          InputAttachmentName: ContinueMP4
+          InputSettings:
+            SourceEndBehavior: CONTINUE
+            AudioSelectors:
+              - Name: ap1
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 1
+              - Name: ap2
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 2
+              - Name: ap3
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 3
+              - Name: ap4
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 4
+              - Name: ap5
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 5
+              - Name: ap6
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 6
+              - Name: ap7
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 7
+              - Name: ap8
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 8
+      Destinations:
+        - Id: udp1
+          Settings:
+            - Url: !Sub "rtp://${MediaConnectToGround1IPUpdates.flow_source_ip}:${MediaConnectToGround1IPUpdates.flow_source_port}"
+        - Id: udp2
+          Settings:
+            - Url: !Sub "rtp://${EC2StreamerIPSubnet1}:${EC2StreamerDistributionPort}"
+        - Id: jpgoutputs3
+          Settings:
+            - Url: !Sub "s3://${ThumbnailBucket}/status_thumbnails/${Prefix}"
+      EncoderSettings:
+        FeatureActivations:
+          InputPrepareScheduleActions: ENABLED
+        AudioDescriptions:
+          - Name: audio_0
+            AudioSelectorName: ap1
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_1
+            AudioSelectorName: ap2
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_2
+            AudioSelectorName: ap3
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_3
+            AudioSelectorName: ap4
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_4
+            AudioSelectorName: ap5
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_5
+            AudioSelectorName: ap6
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_6
+            AudioSelectorName: ap7
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_7
+            AudioSelectorName: ap8
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              Mp2Settings:
+                CodingMode: CODING_MODE_2_0
+                Bitrate: 192000
+                SampleRate: 48000
+          - Name: audio_proxy
+            AudioSelectorName: ap1
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              AacSettings:
+                InputType: NORMAL
+                Bitrate: 128000
+                CodingMode: CODING_MODE_2_0
+                RawFormat: NONE
+                Spec: MPEG4
+                Profile: LC
+                RateControlMode: CBR
+                SampleRate: 48000
+        VideoDescriptions:
+          - CodecSettings:
+              H264Settings:
+                AfdSignaling: NONE
+                ColorMetadata: IGNORE
+                AdaptiveQuantization: HIGH
+                Bitrate: 20000000
+                EntropyEncoding: CABAC
+                FlickerAq: ENABLED
+                ForceFieldPictures: DISABLED
+                FramerateControl: INITIALIZE_FROM_SOURCE
+                GopBReference: DISABLED
+                GopClosedCadence: 1
+                GopSize: 2
+                GopSizeUnits: SECONDS
+                SubgopLength: FIXED
+                ScanType: INTERLACED
+                Level: H264_LEVEL_AUTO
+                LookAheadRateControl: MEDIUM
+                NumRefFrames: 1
+                ParControl: INITIALIZE_FROM_SOURCE
+                Profile: HIGH
+                RateControlMode: CBR
+                Syntax: DEFAULT
+                SceneChangeDetect: ENABLED
+                SpatialAq: ENABLED
+                TemporalAq: ENABLED
+                TimecodeInsertion: PIC_TIMING_SEI
+                QualityLevel: ENHANCED_QUALITY
+                FilterSettings:
+                  TemporalFilterSettings:
+                    PostFilterSharpening: AUTO
+                    Strength: AUTO
+            Name: rtp-distribution
+            RespondToAfd: NONE
+            Sharpness: 50
+            ScalingBehavior: DEFAULT
+          - CodecSettings:
+              H264Settings:
+                AfdSignaling: NONE
+                ColorMetadata: IGNORE
+                AdaptiveQuantization: LOW
+                Bitrate: 250000
+                EntropyEncoding: CABAC
+                FlickerAq: ENABLED
+                ForceFieldPictures: DISABLED
+                FramerateControl: INITIALIZE_FROM_SOURCE
+                GopBReference: DISABLED
+                GopClosedCadence: 1
+                GopSize: 2
+                GopSizeUnits: SECONDS
+                SubgopLength: FIXED
+                ScanType: PROGRESSIVE
+                Level: H264_LEVEL_AUTO
+                LookAheadRateControl: LOW
+                NumRefFrames: 1
+                ParControl: INITIALIZE_FROM_SOURCE
+                Profile: MAIN
+                RateControlMode: CBR
+                Syntax: DEFAULT
+                SceneChangeDetect: ENABLED
+                SpatialAq: ENABLED
+                TemporalAq: ENABLED
+                TimecodeInsertion: DISABLED
+                QualityLevel: STANDARD_QUALITY
+            Height: 360
+            Name: rtp-proxy
+            RespondToAfd: NONE
+            Sharpness: 50
+            ScalingBehavior: DEFAULT
+            Width: 640
+          - CodecSettings:
+              FrameCaptureSettings:
+                CaptureInterval: 2
+                CaptureIntervalUnits: SECONDS
+            Height: 360
+            Width: 640
+            Name: jpg-output-video
+        CaptionDescriptions: []
+        OutputGroups:
+          - Name: frame-capture
+            OutputGroupSettings:
+              FrameCaptureGroupSettings:
+                Destination:
+                  DestinationRefId: jpgoutputs3
+            Outputs:
+              - OutputName: jpg-output
+                VideoDescriptionName: jpg-output-video
+                OutputSettings:
+                  FrameCaptureOutputSettings:
+                    NameModifier: ""
+          - Name: rtp
+            OutputGroupSettings:
+              UdpGroupSettings:
+                InputLossAction: EMIT_PROGRAM
+            Outputs:
+              - OutputName: rtp-distribution
+                VideoDescriptionName: rtp-distribution
+                AudioDescriptionNames:
+                  - audio_0
+                  - audio_1
+                  - audio_2
+                  - audio_3
+                  - audio_4
+                  - audio_5
+                  - audio_6
+                  - audio_7
+                CaptionDescriptionNames: []
+                OutputSettings:
+                  UdpOutputSettings:
+                    BufferMsec: 1000
+                    Destination:
+                      DestinationRefId: udp1
+                    FecOutputSettings:
+                      IncludeFec: COLUMN_AND_ROW
+                      ColumnDepth: 10
+                      RowLength: 10
+                    ContainerSettings:
+                      M2tsSettings:
+                        ProgramNum: 1
+                        Scte35Control: PASSTHROUGH
+              - OutputName: rtp-proxy
+                VideoDescriptionName: rtp-proxy
+                AudioDescriptionNames:
+                  - audio_proxy
+                CaptionDescriptionNames: []
+                OutputSettings:
+                  UdpOutputSettings:
+                    BufferMsec: 100
+                    Destination:
+                      DestinationRefId: udp2
+                    FecOutputSettings:
+                      IncludeFec: COLUMN_AND_ROW
+                      ColumnDepth: 10
+                      RowLength: 10
+                    ContainerSettings:
+                      M2tsSettings:
+                        ProgramNum: 1
+                        Scte35Control: PASSTHROUGH
+        TimecodeConfig:
+          Source: EMBEDDED
+      Tags:
+        Bumpers: Bumpers
+
+  MediaLiveChannelProxy:
+    Type: 'AWS::MediaLive::Channel'
+    Properties:
+      Name: !Sub ${Prefix}-Proxy
+      ChannelClass: SINGLE_PIPELINE
+      InputSpecification:
+        Codec: AVC
+        MaximumBitrate: MAX_50_MBPS
+        Resolution: HD
+      LogLevel: DISABLED
+      RoleArn: !Ref IAMRoleForMediaLive
+      Vpc:
+        SecurityGroupIds: !Ref MediaLiveSGs
+        SubnetIds:
+          - !Ref Subnet1
+      InputAttachments:
+        - InputId: !Ref ML1EMXInputProxy
+          InputAttachmentName: MainStream
+          InputSettings:
+            SourceEndBehavior: CONTINUE
+            AudioSelectors:
+              - Name: ap1
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 1
+              - Name: ap2
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 2
+              - Name: ap3
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 3
+              - Name: ap4
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 4
+              - Name: ap5
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 5
+              - Name: ap6
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 6
+              - Name: ap7
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 7
+              - Name: ap8
+                SelectorSettings:
+                  AudioTrackSelection:
+                    Tracks:
+                      - Track: 8
+      Destinations:
+        - Id: udp1
+          Settings:
+            - Url: !Sub "rtp://${EC2StreamerIPSubnet1}:${EC2StreamerProxyPort}"
+      EncoderSettings:
+        AudioDescriptions:
+          - Name: audio_0
+            AudioSelectorName: ap1
+            AudioTypeControl: FOLLOW_INPUT
+            LanguageCodeControl: FOLLOW_INPUT
+            CodecSettings:
+              AacSettings:
+                InputType: NORMAL
+                Bitrate: 128000
+                CodingMode: CODING_MODE_2_0
+                RawFormat: NONE
+                Spec: MPEG4
+                Profile: LC
+                RateControlMode: CBR
+                SampleRate: 48000
+        VideoDescriptions:
+          - CodecSettings:
+              H264Settings:
+                AfdSignaling: NONE
+                ColorMetadata: IGNORE
+                AdaptiveQuantization: LOW
+                Bitrate: 250000
+                EntropyEncoding: CABAC
+                FlickerAq: DISABLED
+                ForceFieldPictures: DISABLED
+                FramerateControl: INITIALIZE_FROM_SOURCE
+                GopBReference: DISABLED
+                GopClosedCadence: 1
+                GopSize: 2
+                GopSizeUnits: SECONDS
+                SubgopLength: FIXED
+                ScanType: PROGRESSIVE
+                Level: H264_LEVEL_AUTO
+                LookAheadRateControl: LOW
+                NumRefFrames: 1
+                ParControl: INITIALIZE_FROM_SOURCE
+                Profile: MAIN
+                RateControlMode: CBR
+                Syntax: DEFAULT
+                SceneChangeDetect: ENABLED
+                SpatialAq: ENABLED
+                TemporalAq: ENABLED
+                TimecodeInsertion: DISABLED
+                QualityLevel: STANDARD_QUALITY
+            Height: 360
+            Name: rtp-proxy
+            RespondToAfd: NONE
+            Sharpness: 50
+            ScalingBehavior: DEFAULT
+            Width: 640
+        CaptionDescriptions: []
+        OutputGroups:
+          - Name: rtp
+            OutputGroupSettings:
+              UdpGroupSettings:
+                InputLossAction: EMIT_PROGRAM
+            Outputs:
+              - OutputName: rtp-proxy
+                VideoDescriptionName: rtp-proxy
+                AudioDescriptionNames:
+                  - audio_0
+                CaptionDescriptionNames: []
+                OutputSettings:
+                  UdpOutputSettings:
+                    BufferMsec: 100
+                    Destination:
+                      DestinationRefId: udp1
+                    FecOutputSettings:
+                      IncludeFec: COLUMN_AND_ROW
+                      ColumnDepth: 10
+                      RowLength: 10
+                    ContainerSettings:
+                      M2tsSettings:
+                        ProgramNum: 1
+                        Scte35Control: PASSTHROUGH
+        TimecodeConfig:
+          Source: EMBEDDED
+      Tags:
+        Bumpers: Bumpers
+
+Outputs:
+  GroundToMediaConnect1:
+    Description: This is the primary ingest IP and port for the Tie line
+    Value: !Sub rtp://${MediaConnect1ToMediaLiveIPUpdates.flow_source_ip}:${MediaConnect1ToMediaLiveIPUpdates.flow_source_port}
+
+  MediaConnectIngressFlowArn:
+    Description: This is the flow ARN for the MediaConnect ingress flow - ground to cloud (this arn is required in the channel map json)
+    Value: !Ref MediaFlowIn1
+
+  MediaConnectEgressFlowArn:
+    Description: This is the flow ARN for the MediaConnect egress flow - cloud to ground (this arn is required in the channel map json)
+    Value: !Ref MediaFlowOut1
+
+  MediaLiveJPGOutput:
+    Description: This is the S3 URL that MediaLive will publish the channel jpg too. (this is required in the channel map json)
+    Value: !Sub ${ThumbnailBucket}/status_thumbnails/${Prefix}.jpg

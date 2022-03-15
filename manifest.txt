@@ -1,19 +1,13 @@
-## CloudFormation manifest of all the file locations
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/README.md
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/css/style.css
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/js/pagefunctions.js
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/channel_map.json
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/channel_map_template.json
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/dashboard/ui.html
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/error.jpg
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/placeholder.jpg
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/starting.jpg
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/stopping.jpg
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/images/channel_status/stopped.jpg
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/jpg-s3-put-rename.py
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/medialive-cloudwatch-events-thumb-update.py
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/medialive-control-functions.py
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/lambda/medialive-control-config.py
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/promos_ads/short_slate.mp4
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/slates/short_slate.mp4
-https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/status_thumbnails/unique_thumb_name.jpg
+# CloudFormation Files to download
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/channel_map.json
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/channel_map_template.json
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/functions.js
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/medialive-control-functions.py
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/ui-access-proxy.py
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/jpg-s3-put-rename.py
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/medialive-control-config.py
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/medialive-schedule-cleanup.py
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/sldp-v2.18.1.min.js
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/style.css
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/ui.html
+https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/placeholder.jpg
