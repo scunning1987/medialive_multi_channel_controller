@@ -257,6 +257,62 @@ Resources:
       - MediaLiveScheduleCleanup
       - DailyScheduleCleanup
 
+  StepFunctionStartExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${StackName}-${AWS::Region}-start-exec-sfn-role-policy"
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${StackName}-VideoPipeline"
+
+
+  StepFunctionServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub states.${AWS::Region}.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  StepFunctionServiceRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Policy that provides ability to services to call state machines and lambdas
+      Roles:
+        - !Ref StepFunctionServiceRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource:
+              - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+          - Effect: Allow
+            Action:
+              - states:*
+            Resource:
+              - !Sub arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*
+
+
   #################
   ## Custom Resource
   #################
@@ -296,9 +352,60 @@ Resources:
       - ThumbnailS3PutRename
       - FileMover
 
+  #####
+  # DynamoDB
+  #####
+  VideoPipelineDatabase:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "VideoPipelineDB-${StackName}"
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: house_id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: house_id
+          AttributeType: S
+
+
   #################
   ## Lambda
   #################
+
+  StepAPIHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF API Handler
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.medialive-control-functions
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+#  StepAPIHandler
+#  StepMediaPackage
+#  StepMediaLiveInput
+#  StepMediaLiveChannel
+#  StepChannelMapUpdate
+#  StepStartChannels
+#  StepStopChannels
+
 
   MediaLiveControlFunctions:
     Type: AWS::Lambda::Function
@@ -312,29 +419,6 @@ Resources:
       Code:
         S3Bucket: !Ref S3Bucket
         S3Key: !GetAtt FileMover.medialive-control-functions
-      Tags:
-        - Key: StackName
-          Value: !Ref AWS::StackName
-        - Key: Version
-          Value: 2
-    DependsOn:
-      - S3Bucket
-      - LambdaRole
-      - FileCopier
-      - FileMover
-
-  ChannelMapTranslator:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Get channel_map from DynamoDB and translate to json for loading in web ui
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: python3.8
-      Handler: index.lambda_handler
-      Timeout: 10
-      MemorySize: 10240
-      Code:
-        S3Bucket: !Ref S3Bucket
-        S3Key: !GetAtt FileMover.channel-map-translator
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
@@ -846,6 +930,114 @@ Resources:
       - FileMover
 
 
+  #################################
+  # Step Functions
+  #################################
+
+  CAAutomationSfn:
+    Type: "AWS::StepFunctions::StateMachine"
+    DependsOn:
+      - StepAPIHandler
+    Properties:
+      StateMachineName: !Sub "${DeploymentName}-CAAutomation-StepFunction"
+      RoleArn: !GetAtt StepFunctionServiceRole.Arn
+      DefinitionString: !Sub
+        |-
+
+        {
+          "Comment": "A Hello World example of the Amazon States Language using Pass states",
+          "StartAt": "APIResult",
+          "States": {
+            "APIResult": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Or": [
+                    {
+                      "Variable": "$.detail.task",
+                      "StringEquals": "create"
+                    },
+                    {
+                      "Variable": "$.detail.task",
+                      "StringEquals": "delete"
+                    }
+                  ],
+                  "Next": "Modify Deployment"
+                },
+                {
+                  "Variable": "$.detail.task",
+                  "StringEquals": "start",
+                  "Next": "Start All Channels"
+                },
+                {
+                  "Variable": "$.detail.task",
+                  "StringEquals": "stop",
+                  "Next": "Stop All Channels"
+                }
+              ]
+            },
+            "Stop All Channels": {
+              "Type": "Pass",
+              "Next": "StopChannels"
+            },
+            "Start All Channels": {
+              "Type": "Pass",
+              "Next": "StartChannels"
+            },
+            "Modify Deployment": {
+              "Type": "Pass",
+              "Next": "MediaPackage"
+            },
+            "MediaPackage": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-2:301520684698:function:ottauto-mediapackage-create:$LATEST",
+              "Next": "MediaLive Inputs"
+            },
+            "MediaLive Inputs": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:us-west-2:301520684698:function:30001-MediaLiveStoppedJPG:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "MediaLive Channels"
+            },
+            "MediaLive Channels": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-2:301520684698:function:ottauto-medialive-create:$LATEST",
+              "Next": "ChannelMapDBUpdate"
+            },
+            "ChannelMapDBUpdate": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-2:301520684698:function:ottauto-dashboard-create:$LATEST",
+              "End": true
+            },
+            "StartChannels": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-2:301520684698:function:ottauto-deployment-start:$LATEST",
+              "End": true
+            },
+            "StopChannels": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-2:301520684698:function:ottauto-deployment-stop:$LATEST",
+              "End": true
+            }
+          }
+        }
+
     #################
     ## API Gateway
     #################
@@ -857,36 +1049,6 @@ Resources:
       Description: !Sub API Handler [${AWS::StackName}
       BinaryMediaTypes:
         - '*/*'
-      EndpointConfiguration:
-        Types:
-          - PRIVATE
-        VpcEndpointIds:
-          - !Ref VPCEndpoint
-      Policy: !Sub
-        |-
-        {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Principal": "*",
-                    "Action": "execute-api:Invoke",
-                    "Resource": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*"
-                },
-                {
-                    "Effect": "Deny",
-                    "Principal": "*",
-                    "Action": "execute-api:Invoke",
-                    "Resource": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*",
-                    "Condition": {
-                        "StringNotEquals": {
-                            "aws:SourceVpc": "${VpcToDeployInto}"
-                        }
-                    }
-                }
-            ]
-        }
-
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
@@ -942,7 +1104,6 @@ Resources:
       AuthorizationType: NONE
       HttpMethod: ANY
       Integration:
-        #Credentials: !GetAtt ApiGatewayRole.Arn
         IntegrationHttpMethod: POST
         IntegrationResponses:
           - StatusCode: '200'
@@ -1104,20 +1265,6 @@ Resources:
       - ApiGateway
 
     #################
-    ## VPC
-    #################
-
-  VPCEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.execute-api
-      PrivateDnsEnabled: true
-      SubnetIds: !Ref SubnetToDeployApiInterface
-      VpcId: !Ref VpcToDeployInto
-      VpcEndpointType : Interface
-      SecurityGroupIds: !Ref InterfaceEndpointSecurityGroups
-
-    #################
     ## EventBridge
     #################
 
@@ -1138,6 +1285,26 @@ Resources:
     DependsOn:
       - MediaLiveScheduleCleanup
       - LambdaRole
+
+  StepFunctionsInitiate:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event Bridge to start Step Functions Workflow
+      EventPattern: {
+        "source": [
+            "aws.lambda",
+            "lambda.amazonaws.com"
+        ],
+        "detail-type": [
+            "StepFunctionsTrigger"
+        ]
+      }
+      Targets:
+        - Arn: !Sub >-
+            arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:${StackName}-VideoPipeline
+          RoleArn: !GetAtt StepFunctionStartExecutionRole.Arn
+          Id: VideoPipelineAutomationStepFunctionsInitiate
+
 
 #################################
 # Outputs
