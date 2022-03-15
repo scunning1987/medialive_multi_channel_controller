@@ -1,13 +1,12 @@
 # CloudFormation Files to download
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/channel_map.json
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/channel_map_template.json
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/functions.js
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/medialive-control-functions.py
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/ui-access-proxy.py
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/jpg-s3-put-rename.py
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/medialive-control-config.py
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/medialive-schedule-cleanup.py
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/sldp-v2.18.1.min.js
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/style.css
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/ui.html
-https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/placeholder.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/channel_map.json
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/channel_map_template.json
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/functions.js
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive-control-functions.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/ui-access-proxy.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/jpg-s3-put-rename.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive-control-config.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive-schedule-cleanup.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/style.css
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/ui.html
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/placeholder.jpg
