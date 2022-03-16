@@ -1366,7 +1366,7 @@ Resources:
         - StatusCode: 200
           ResponseModels:
             application/json: !Ref EmptyApiModel
-      ResourceId: !Ref ProxyPlusResourceCtrl
+      ResourceId: !Ref ProxyPlusResourceWorkflow
       RestApiId: !Ref ApiGateway
     DependsOn:
       - ApiGateway
