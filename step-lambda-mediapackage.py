@@ -89,12 +89,12 @@ def lambda_handler(event, context):
         hlstemplate = {
             "AdMarkers": "PASSTHROUGH",
             "AdsOnDeliveryRestrictions": "NONE",
-            "IncludeIframeOnlyStream": false,
+            "IncludeIframeOnlyStream": False,
             "PlaylistType": "NONE",
             "PlaylistWindowSeconds": 60,
             "ProgramDateTimeIntervalSeconds": 60,
             "SegmentDurationSeconds": 6,
-            "UseAudioRenditionGroup": false
+            "UseAudioRenditionGroup": False
         }
 
         endpoint_exceptions = 0
@@ -215,12 +215,11 @@ def lambda_handler(event, context):
 
     emp_client = boto3.client('mediapackage',region_name=region)
 
-    db_mediapackage_config_template = mediapackage['M']
-    channel_template = db_mediapackage_config_template["1"]["M"]
+    db_mediapackage_config_template = dict()
+    # channel_template = db_mediapackage_config_template["1"]["M"]
 
 
     # Iterate through channels and create MediaPackage channels
-
     for channel in range(1,int(channels)+1):
 
         endpoint_list = []
@@ -253,16 +252,20 @@ def lambda_handler(event, context):
         channel_dict['Channel_Name'] = channel_id
         channel_dict['Channel_Arn'] = channel_arn
 
-
         db_mediapackage_config_template[str(channel)] = channel_dict
 
     if len(exceptions) > 0:
         return errorOut()
 
     # Update the DB json with the MediaConnect flow information
-    db_item['MediaPackage'] = {'M':db_mediapackage_config_template}
+    json_item['MediaPackage'] = db_mediapackage_config_template
 
-    putItem(db_item)
+    emp_dict_to_dynamo = dict()
+    json_to_dynamo(emp_dict_to_dynamo,json_item)
+
+    return emp_dict_to_dynamo
+
+    putItem(emp_dict_to_dynamo)
     if len(exceptions) > 0:
         return errorOut()
     else:

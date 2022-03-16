@@ -81,8 +81,8 @@ def lambda_handler(event, context):
         return api_response(500,{"status":api_call_validation})
 
     # Validate the value of channels
-    if task == "create":
-        LOGGER.info("API Call received to CREATE a deployment")
+    if task == "create" or task == "delete":
+        LOGGER.info("API Call received to %s a deployment" % (task))
 
         # get: name , channels, region
         ## Extract name from query paramaters
@@ -94,6 +94,7 @@ def lambda_handler(event, context):
             api_call_validation.append(msg)
             return api_response(500,{"status":api_call_validation})
 
+    if task == "create":
         ## Extract channels from query paramaters
         try:
             channels = request_query_strings['channels']
@@ -408,6 +409,7 @@ def lambda_handler(event, context):
             return errorOut()
 
         # do stuff
+        channels = ""
         triggerStepFunctions()
         if len(exceptions) > 0:
             return errorOut()
