@@ -991,7 +991,7 @@ Resources:
         Variables:
           BUCKET: !Ref S3Bucket
           CONFIG_KEY: !GetAtt FileMover.channel_map
-          APICTRL: !Sub https://${ApiGateway}-${VPCEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-ctrl
+          APICTRL: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-ctrl
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
@@ -1174,7 +1174,7 @@ Resources:
             },
             "MediaLive Channels": {
               "Type": "Task",
-              "Resource": "${StepMediaLiveChannels.Arn}",
+              "Resource": "${StepMediaLiveChannel.Arn}",
               "Next": "ChannelMapDBUpdate"
             },
             "ChannelMapDBUpdate": {
@@ -1472,7 +1472,7 @@ Outputs:
     Description: Dashboard URL for MediaLive control
     #Value: !Sub https://${S3Bucket}.s3.${AWS::Region}.amazonaws.com/${FileMover.ui}
     #Value: !Sub https://${CloudFrontDistribution.DomainName}/${FileMover.ui}
-    Value: !Sub https://${ApiGateway}-${VPCEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/${FileMover.ui}
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/${FileMover.ui}
 
   APIEndpointURLGetSample:
     Description: API Endpoint for getting sample configuration, method - GET
@@ -1481,8 +1481,6 @@ Outputs:
       - ''
       - - 'https://'
         - !Ref ApiGateway
-        - '-'
-        - !Ref VPCEndpoint
         - '.execute-api.'
         - !Ref 'AWS::Region'
         - '.amazonaws.com/'
@@ -1491,11 +1489,11 @@ Outputs:
 
   APIEndpointURLGetConfig:
     Description: API Endpoint for getting existing configuration, method - GET
-    Value: !Sub https://${ApiGateway}-${VPCEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-cfg/existing
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-cfg/existing
 
   APIEndpointURLPutConfig:
     Description: API Endpoint for updating existing configuration, method - PUT
-    Value: !Sub https://${ApiGateway}-${VPCEndpoint}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-cfg/update
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-cfg/update
 
   ProxyThumbnailToS3PathTemplate:
     Description: For the multiviewer, each proxy MediaLive channel should output a thumbnail to this location. Take note of the jpg location as it will be required in the channel_map.json. DO NOT PUT AN EXTENSION IN THE NAME IN MEDIALIVE OR A NAME MODIFIER
