@@ -17,3 +17,4 @@ https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controlle
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-mediapackage.py
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-startchannels.py
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-stopchannels.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-channelmapupdate.py
