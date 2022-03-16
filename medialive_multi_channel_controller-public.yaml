@@ -11,6 +11,10 @@ Parameters:
     AllowedPattern: ^arn:aws:iam::.+ #(\d{12}|aws):policy/:+
     Default: arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
 
+  StackName:
+    Description: Name of the CF stack
+    Type: String
+
   MediaLiveScheduleCleanupTag:
     Description: Enter a Property name here that the schedule cleanup function will look for when it runs its daily cleanup. Channels that don't have this tag will be ignored
     Type: String
