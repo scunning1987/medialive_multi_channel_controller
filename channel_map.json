@@ -2,6 +2,7 @@
   "vod_bucket":"aws-elemental-demo-2021",
   "bumper_bucket_region": "us-west-2",
   "control_api_endpoint_url": "https://j4b8bhx380.execute-api.us-west-2.amazonaws.com/v1/dashboard-ctrl",
+  "proxy_thumbnail_template_path": "s3://dishauto2-s3bucket-70vmiroyzdp8/status_thumbnails/[thumbnail-name]",
   "gfx_overlay": {
     "1": {
       "name": "AWS Black Logo",
@@ -25,7 +26,7 @@
       "mux_details": {"total_rate": 35000000, "output": "udp://10.10.10.10:12000"},
       "region": "us-west-2",
       "channels": [
-        {"mux_channel_name": "channel1","mux_channel_id": 123456,"frame_size": "hd/sd","codec": "avc/mpeg2","ott_channel_id": 123457,"ott_url": "emp_endpoint"}
+        {"mux_channel_name": "channel1","mux_channel_id": 123456,"frame_size": "hd/sd","codec": "avc/mpeg2","ott_channel_id": 123457,"ott_url": "https://...m3u8","jpg_url": "https://...jpg"}
       ]
     }
 

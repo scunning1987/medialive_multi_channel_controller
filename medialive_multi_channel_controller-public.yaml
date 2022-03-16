@@ -532,7 +532,7 @@ Resources:
       - FileCopier
       - FileMover
 
-  StepChannelMapDBUpdate:
+  StepChannelMapUpdate:
     Type: AWS::Lambda::Function
     Properties:
       Description: SF MediaLive Channel
@@ -547,6 +547,8 @@ Resources:
       Environment:
         Variables:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
+          Bucket: !Ref S3Bucket
+          Config_Key: !GetAtt FileMover.channel_map
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
@@ -1095,7 +1097,7 @@ Resources:
       - StepMediaLiveChannel
       - StepStartChannels
       - StepStopChannels
-      - StepChannelMapDBUpdate
+      - StepChannelMapUpdate
     Properties:
       StateMachineName: !Sub "${StackName}-VideoPipeline"
       RoleArn: !GetAtt StepFunctionServiceRole.Arn
@@ -1151,7 +1153,7 @@ Resources:
               "Resource": "${StepMediaPackage.Arn}",
               "Next": "MediaLive Inputs"
             },
-            "MediaLive Inputs": {
+            "MediaLiveInputs": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "OutputPath": "$.Payload",
@@ -1173,14 +1175,14 @@ Resources:
               ],
               "Next": "MediaLive Channels"
             },
-            "MediaLive Channels": {
+            "MediaLiveChannels": {
               "Type": "Task",
               "Resource": "${StepMediaLiveChannel.Arn}",
-              "Next": "ChannelMapDBUpdate"
+              "Next": "Channelmapupdate"
             },
-            "ChannelMapDBUpdate": {
+            "ChannelMapUpdate": {
               "Type": "Task",
-              "Resource": "${StepChannelMapDBUpdate.Arn}",
+              "Resource": "${StepChannelMapUpdate.Arn}",
               "End": true
             },
             "StartChannels": {
@@ -1225,6 +1227,15 @@ Resources:
     Properties:
       ParentId: !GetAtt ApiGateway.RootResourceId
       PathPart: 'dashboard-cfg'
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  ProxyPlusResourceWorkflow:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: 'dashboard-workflow'
       RestApiId: !Ref ApiGateway
     DependsOn:
       - ApiGateway
@@ -1322,6 +1333,34 @@ Resources:
             - !Ref 'AWS::Region'
             - :lambda:path/2015-03-31/functions/
             - !GetAtt MediaLiveControlFunctions.Arn
+            - /invocations
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: !Ref EmptyApiModel
+      ResourceId: !Ref ProxyPlusResourceCtrl
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+
+  GetMethodForWorkflow:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        #Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Type: AWS_PROXY
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt ProxyPlusResourceWorkflow.Arn
             - /invocations
       MethodResponses:
         - StatusCode: 200
