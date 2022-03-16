@@ -1178,7 +1178,7 @@ Resources:
             "MediaLiveChannels": {
               "Type": "Task",
               "Resource": "${StepMediaLiveChannel.Arn}",
-              "Next": "Channelmapupdate"
+              "Next": "ChannelMapUpdate"
             },
             "ChannelMapUpdate": {
               "Type": "Task",
