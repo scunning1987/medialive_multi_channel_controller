@@ -134,6 +134,11 @@ Resources:
               - dynamodb:*
             Resource:
               - !GetAtt VideoPipelineDatabase.Arn
+          - Effect: Allow
+            Action:
+              - dynamodb:List*
+            Resource:
+              - '*'
     DependsOn: S3Bucket
 
   ##
