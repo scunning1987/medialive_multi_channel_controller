@@ -380,7 +380,7 @@ Resources:
       TableName: !Sub "VideoPipelineDB-${StackName}"
       BillingMode: PAY_PER_REQUEST
       KeySchema:
-        - AttributeName: house_id
+        - AttributeName: Group_Name
           KeyType: HASH
       AttributeDefinitions:
         - AttributeName: Group_Name
