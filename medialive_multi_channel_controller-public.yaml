@@ -1507,9 +1507,6 @@ Outputs:
     Description: This is the role that should be used by MediaLive
     Value: !GetAtt IAMRoleForMediaLive.Arn
 
-  MediaConnectAccessRole:
-    Description: This is the role that should be used by MediaConnect
-    Value: !GetAtt IAMRoleForMediaConnectToCreateInVPC.Arn
 
   #APIEndpointURLCTRL:
   #  Description: API Endpoint to control the MediaLive channels. This URL is needed when updating the config
