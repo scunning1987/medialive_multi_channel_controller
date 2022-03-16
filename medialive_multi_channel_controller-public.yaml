@@ -238,6 +238,16 @@ Resources:
     DependsOn:
       - MediaLiveControlConfig
 
+  LambdaInvokePermissionAPIWorkflow:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt StepAPIHandler.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/dashboard-workflow/*"
+    DependsOn:
+      - MediaLiveControlConfig
+
   LambdaInvokePermissionS3:
     Type: AWS::Lambda::Permission
     Properties:
