@@ -383,7 +383,7 @@ Resources:
       MemorySize: 10240
       Code:
         S3Bucket: !Ref S3Bucket
-        S3Key: !GetAtt FileMover.medialive-control-functions
+        S3Key: !GetAtt FileMover.step-lambda-api-handler
       Environment:
         Variables:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
@@ -398,14 +398,135 @@ Resources:
       - FileCopier
       - FileMover
 
-#  StepAPIHandler
-#  StepMediaPackage
-#  StepMediaLiveInput
-#  StepMediaLiveChannel
-#  StepChannelMapUpdate
-#  StepStartChannels
-#  StepStopChannels
+  StepMediaPackage:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF MediaPackage
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.step-lambda-mediapackage
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
 
+  StepMediaLiveInput:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF MediaLive Input
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.step-lambda-medialiveinput
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  StepMediaLiveChannel:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF MediaLive Channel
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.step-lambda-medialivechannel
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  StepStartChannels:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF MediaLive Channel
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.step-lambda-startchannels
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
+  StepStopChannels:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF MediaLive Channel
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 10
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.step-lambda-stopchannels
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
 
   MediaLiveControlFunctions:
     Type: AWS::Lambda::Function
