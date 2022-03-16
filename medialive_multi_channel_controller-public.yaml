@@ -753,7 +753,8 @@ Resources:
               apiendpoint = os.environ['APIENDPOINT']
 
               # Manifest File containning URL's on github
-              cloudformation_manifest = "https://raw.githubusercontent.com/scunning1987/aws_projects/main/377/manifest.txt"
+              cloudformation_manifest = "https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/manifest.txt"
+
 
               # Get the manifest from GitHub
               get_response = http.request('GET', cloudformation_manifest)
