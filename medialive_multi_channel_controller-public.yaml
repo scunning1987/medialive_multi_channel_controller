@@ -68,7 +68,7 @@ Resources:
     Properties:
       Roles:
         - !Ref LambdaRole
-      PolicyName: !Sub ${AWS::StackName}-s3-access
+      PolicyName: !Sub ${AWS::StackName}-lambda-access
       PolicyDocument:
         Statement:
           - Effect: Allow
@@ -129,6 +129,11 @@ Resources:
               - iam:PassRole
             Resource:
               - !Sub arn:aws:iam::${AWS::AccountId}:role/*
+          - Effect: Allow
+            Action:
+              - dynamodb:*
+            Resource:
+              - !GetAtt VideoPipelineDatabase.Arn
     DependsOn: S3Bucket
 
   ##
@@ -244,7 +249,7 @@ Resources:
       FunctionName: !GetAtt StepAPIHandler.Arn
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/dashboard-workflow/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*/dashboard-workflow"
     DependsOn:
       - MediaLiveControlConfig
 
@@ -378,7 +383,7 @@ Resources:
         - AttributeName: house_id
           KeyType: HASH
       AttributeDefinitions:
-        - AttributeName: house_id
+        - AttributeName: Group_Name
           AttributeType: S
 
 

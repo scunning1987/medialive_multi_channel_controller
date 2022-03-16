@@ -12,71 +12,146 @@ db_client = boto3.client('dynamodb')
 cw_client = boto3.client('events')
 dynamodb_table_name = os.environ['VideoPipelineDatabase']
 exceptions = []
+default_region = "us-west-2"
 
 def lambda_handler(event, context):
 
+    def api_response(response_code,response_body):
+        return {
+            'statusCode': response_code,
+            'body': json.dumps(response_body)
+        }
+
     LOGGER.debug(event)
     current_time = str(datetime.datetime.now())
-    event['time'] = current_time
-    channels = event['channels']
-    region = event['region']
-    pipeline = event['pipeline']
 
-    task = event['task']
-    try:
-        channels = int(event['channels'])
-    except:
-        channels = ""
 
-    name = event['name']
+    # channels = event['channels']
+    # region = event['region']
+    # pipeline = event['pipeline']
 
     api_call_validation = []
-    valid_task_values = ['create', 'delete', 'start', 'stop', 'list']
+
+    # get request time
+    event['requestContext']['requestTime'] = current_time
+
+    ## Validate Path first
+    request_path = event['path']
+    if request_path != "/dashboard-workflow":
+        msg = "Request path submitted does not equal a supported function, available options are: /dashboard-workflow"
+        LOGGER.error(msg)
+        api_call_validation.append(msg)
+        return api_response(500,{"status":api_call_validation})
+
+    # check if query parameters were sent in the request
+    if event['queryStringParameters'] is None:
+        msg = "Request does not include query string parameters required for this function"
+        LOGGER.error(msg)
+        api_call_validation.append(msg)
+        return api_response(500,{"status":api_call_validation})
+
+    request_query_strings = event['queryStringParameters']
+
+
+    ## Extract task from query paramaters
+    try:
+        task = request_query_strings['task']
+    except Exception as e:
+        msg = "Unable to extract task query parameter from request: %s " % (e)
+        LOGGER.error(msg)
+        api_call_validation.append(msg)
+        return api_response(500,{"status":api_call_validation})
+
+
 
     ###
     ### VALIDATION STEPS
     ###
 
     # Validate the task query param value
+    valid_task_values = ['create', 'delete', 'start', 'stop', 'list']
+
     if task not in valid_task_values:
-        LOGGER.error("Task value submitted does not equal a supported function, available options are: create, delete, start, stop, list")
-        api_call_validation.append("ERROR: Task value submitted does not equal a supported function, available options are: create, delete, start, stop, list")
-        event['status'] = "ERROR: Task value submitted does not equal a supported function, available options are: create, delete, start, stop, list"
-        return event
+        msg = "Task value submitted does not equal a supported function, available options are: create, delete, start, stop, list"
+        LOGGER.error(msg)
+        api_call_validation.append(msg)
+        return api_response(500,{"status":api_call_validation})
 
     # Validate the value of channels
     if task == "create":
         LOGGER.info("API Call received to CREATE a deployment")
 
-        # Need to make sure CHANNELS value is specified and is a valid integer
-        if isinstance(channels, int) is False:
+        # get: name , channels, region
+        ## Extract name from query paramaters
+        try:
+            name = request_query_strings['name']
+        except Exception as e:
+            msg = "Unable to extract name query parameter from request: %s " % (e)
+            LOGGER.error(msg)
+            api_call_validation.append(msg)
+            return api_response(500,{"status":api_call_validation})
 
-            LOGGER.error("Cannot create deployment, invalid number for channels to create : %s " % (str(channels)))
-            event['status'] = "ERROR : Cannot create deployment, please specify a valid number for channels to create"
-            return event
+        ## Extract channels from query paramaters
+        try:
+            channels = request_query_strings['channels']
+        except Exception as e:
+            msg = "Unable to extract channels query parameter from request: %s " % (e)
+            LOGGER.error(msg)
+            api_call_validation.append(msg)
+            return api_response(500,{"status":api_call_validation})
+
+
+        # Need to make sure CHANNELS value is specified and is a valid integer
+        try:
+            channels = int(channels)
+        except Exception as e:
+            msg = "Cannot create deployment, invalid number for channels to create : %s " % (str(channels))
+            LOGGER.error(msg)
+            api_call_validation.append(msg)
+            return api_response(500,{"status":api_call_validation})
 
     # Validate that the name parameter contains a value. We won't look up DynamoDB for an entry right now, this is just for query param validation
     if task != "list":
         if len(name) == 0:
-            LOGGER.error("Cannot create deployment, no name has been passed for the deployment")
-            event['status'] = "ERROR : Cannot create deployment, no name has been passed for the deployment"
-            return event
+            msg = "Cannot %s deployment, no name has been passed in the query string" %s (task)
+            LOGGER.error(msg)
+            api_call_validation.append(msg)
+            return api_response(500,{"status":api_call_validation})
 
     # Validate correct region was specified
     emx_regions = [ "us-east-1", "us-east-2", "us-west-1", "us-west-2", "ap-east-1", "ap-south-1", "ap-northeast-2", "ap-southeast-1", "ap-southeast-2", "ap-northeast-1","eu-central-1", "eu-west-1","eu-west-2", "eu-west-3", "eu-north-1","sa-east-1"]
 
+    ## Extract region from query paramaters
+    try:
+        region = request_query_strings['region']
+    except Exception as e:
+        msg = "Unable to extract region query parameter from request: %s , defaulting to us-west-2" % (e)
+        LOGGER.warning(msg)
+        region = ""
+
     if len(region) < 1:
         # Default to region us-west-2
-        region = "us-west-2"
+        region = default_region
     elif region not in emx_regions: # Check validity of region
-        LOGGER.error("Cannot create deployment, region specified was incorrect : %s" % (region))
-        event['status'] = "ERROR : Cannot create deployment, region specified was incorrect : %s" % (region)
-        return event
+        msg = "Cannot create deployment, region specified was incorrect : %s , valid regions : %s " % (region, emx_regions)
+        LOGGER.error(msg)
+        api_call_validation.append(msg)
+        return api_response(500,{"status":api_call_validation})
+
+
+    ## Extract pipeline from query paramaters
+    try:
+        pipeline = request_query_strings['pipeline']
+    except Exception as e:
+        msg = "Unable to extract pipeline query parameter from request: %s , defaulting to SINGLE_PIPELINE" % (e)
+        LOGGER.warning(msg)
+        pipeline = ""
 
     if len(pipeline) > 0:
         pipeline = "STANDARD"
     else:
         pipeline = "SINGLE_PIPELINE"
+
 
     ###
     ### If the function reaches here, then valid values were received
@@ -153,23 +228,23 @@ def lambda_handler(event, context):
         # Create DB Item for deployment
         LOGGER.info("name does not exist in database. attempting to create now")
 
-        # Edit the sample template with the new deployment name
-        with open('item_template.json', 'r') as f:
-            item_template_str = f.read()
-        item_template = json.loads(item_template_str)
+        json_item = dict()
+        json_item['Group_Name'] = name
+        json_item['Channels'] = str(channels)
+        json_item['Region'] = region
+        json_item['Pipeline'] = pipeline
 
-        item_template['Deployment_Name']['S'] = name
-        item_template['Channels']['S'] = str(channels)
-        item_template['Region']['S'] = str(region)
-        item_template['Pipeline']['S'] = str(pipeline)
+        dynamodb_item = dict()
+        json_to_dynamo(dynamodb_item,json_item)
 
         try:
-            put_item_response = db_client.put_item(TableName=dynamodb_table_name,Item=item_template)
+            put_item_response = db_client.put_item(TableName=dynamodb_table_name,Item=dynamodb_item)
             LOGGER.debug("DynamoDB Put Item response: %s" % (put_item_response))
         except Exception as e:
-            LOGGER.error("Unable to create item in database. Please try again later, response : %s " % (e))
-            exceptions.append(e)
-            return e
+            msg = "Unable to create item in database. Please try again later, response : %s " % (e)
+            LOGGER.error(msg)
+            exceptions.append(msg)
+            return api_response(500,{"status":exceptions})
 
     def triggerStepFunctions():
         LOGGER.info("Completed all api handler tasks, now initiating Step Functions to complete the video deployment tasks for action : %s " % (task))
