@@ -22,6 +22,9 @@ def lambda_handler(event, context):
             'body': json.dumps(response_body)
         }
 
+    # enable for event debugging
+    #return api_response(200,event)
+
     LOGGER.debug(event)
     current_time = str(datetime.datetime.now())
 
@@ -188,8 +191,8 @@ def lambda_handler(event, context):
     def createdbtable():
         LOGGER.info("Creating DB Table as it does not exist")
         try:
-            attribute_definitions = [{'AttributeName': 'Deployment_Name','AttributeType': 'S'}]
-            key_schema = [{'AttributeName': 'Deployment_Name','KeyType': 'HASH'}]
+            attribute_definitions = [{'AttributeName': 'Group_Name','AttributeType': 'S'}]
+            key_schema = [{'AttributeName': 'Group_Name','KeyType': 'HASH'}]
             create_db_response = db_client.create_table(TableName=dynamodb_table_name,AttributeDefinitions=attribute_definitions,KeySchema=key_schema,BillingMode='PAY_PER_REQUEST')
             LOGGER.debug("DynamoDB create DB response : %s " % (create_db_response))
         except Exception as e:
@@ -213,7 +216,7 @@ def lambda_handler(event, context):
         duplicate_check = False
 
         for item in query_response['Items']:
-            if name == item['Deployment_Name']['S']:
+            if name == item['Group_Name']['S']:
                 duplicate_check = True
 
         ## If the item exists. fail now
@@ -457,7 +460,7 @@ def lambda_handler(event, context):
 
         itemexists = itemcheck(query_response)
         if itemexists is False:
-            exceptions.append("IThe name you specified doesnt exist as a deployment")
+            exceptions.append("The name you specified doesnt exist as a deployment")
             return errorOut()
 
         # do stuff
@@ -479,13 +482,11 @@ def lambda_handler(event, context):
         dbitems = listitems()
         if len(exceptions) > 0:
             return errorOut()
-        prettyoutput = dict()
 
-        for item in dbitems['Items']:
-            deployment_name = item['Deployment_Name']['S']
-            deployment_dashboard = item['CloudFront']['M']['Dashboard_URL']['S']
-            prettyoutput.update({deployment_name:{'deployment_dashboard':deployment_dashboard}})
-        return prettyoutput
+        json_item = dict()
+        dynamo_to_json(json_item,dbitems)
+
+        return json_item
 
     else:
         return "should not ever get here"
