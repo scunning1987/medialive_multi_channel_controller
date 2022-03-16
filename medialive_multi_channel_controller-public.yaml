@@ -1151,7 +1151,7 @@ Resources:
             "MediaPackage": {
               "Type": "Task",
               "Resource": "${StepMediaPackage.Arn}",
-              "Next": "MediaLive Inputs"
+              "Next": "MediaLiveInputs"
             },
             "MediaLiveInputs": {
               "Type": "Task",
@@ -1173,7 +1173,7 @@ Resources:
                   "BackoffRate": 2
                 }
               ],
-              "Next": "MediaLive Channels"
+              "Next": "MediaLiveChannels"
             },
             "MediaLiveChannels": {
               "Type": "Task",
