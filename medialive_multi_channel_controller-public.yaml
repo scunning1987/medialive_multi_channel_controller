@@ -1569,6 +1569,14 @@ Outputs:
     Description: This is the Arn for the role that Lambda assumes for MediaLive and MediaConnect control functions. This may be needed in an external CloudFormation template
     Value: !GetAtt LambdaRole.Arn
 
+  ChannelMap:
+    Description: This is the URL to access the channel map that gets loaded into the UI and has all the channel information
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/!GetAtt FileMover.channel_map
+
+  UserInterface:
+    Description: The UI to control your channels
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/!GetAtt FileMover.ui
+
   MediaLiveAccessRole:
     Description: This is the role that should be used by MediaLive
     Value: !GetAtt IAMRoleForMediaLive.Arn
