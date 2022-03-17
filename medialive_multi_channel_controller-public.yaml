@@ -144,7 +144,7 @@ Resources:
               - events:*
             Resource:
               - !GetAtt StepFunctionsInitiate.Arn
-              - arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
+              - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
     DependsOn: S3Bucket
 
   ##
@@ -495,6 +495,8 @@ Resources:
       Environment:
         Variables:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
+          FrameCaptureToJpgPath: status_thumbnails/[thumbnail-name]
+          S3Bucket: !Ref S3Bucket
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
@@ -1571,11 +1573,11 @@ Outputs:
 
   ChannelMap:
     Description: This is the URL to access the channel map that gets loaded into the UI and has all the channel information
-    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/!GetAtt FileMover.channel_map
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/${FileMover.channel_map}
 
   UserInterface:
     Description: The UI to control your channels
-    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/!GetAtt FileMover.ui
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/${FileMover.ui}
 
   MediaLiveAccessRole:
     Description: This is the role that should be used by MediaLive
