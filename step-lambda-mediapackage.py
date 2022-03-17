@@ -134,6 +134,31 @@ def lambda_handler(event, context):
             LOGGER.info("Successfully created endpoints for channel %s " % (channel_name))
             return endpoints
 
+    def delete_mediapackage_endpoint(endpoint_id):
+        #
+        try:
+            response = emp_client.delete_origin_endpoint(Id=endpoint_id)
+            LOGGER.info("Delete channel endpoint %s , response: %s " % (endpoint_id,response))
+        except Exception as e:
+            msg = "MediaPackage origin endpoint %s delete failed, got exception: %s " % (endpoint_id,e)
+            LOGGER.warning(msg)
+            endpoint_delete_exceptions.append(endpoint_id)
+            response = "failed"
+
+        return response
+
+    def delete_mediapackage_channel(channel_id):
+        #
+        try:
+            response = emp_client.delete_channel(Id=channel_id)
+            LOGGER.info("Delete channel endpoint %s , response: %s " % (endpoint_id,response))
+        except Exception as e:
+            msg = "MediaPackage channel %s delete failed, got exception: %s " % (channel_id,e)
+            LOGGER.warning(msg)
+            channel_delete_exceptions.append(channel_id)
+            response = msg
+
+        return response
 
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
@@ -181,13 +206,15 @@ def lambda_handler(event, context):
             elif value_type == "L": # list
                 value = my_dict[k][value_type]
 
+                new_item_list = []
                 for i in range(0,len(value)):
                     dynamodb_item_list = dict()
                     dynamo_to_json(dynamodb_item_list,value[i])
 
-                    value[i] = dynamodb_item_list
+                new_item_list.append(dynamodb_item_list)
 
-                dicttopopulate.update({k:value})
+                dicttopopulate.update({k:new_item_list})
+
             elif k == "M":
 
                 dynamodb_item_m = dict()
@@ -201,73 +228,118 @@ def lambda_handler(event, context):
 
     exceptions.clear()
 
-    # Call DynamoDB to get the deployment information
+    # Call DynamoDB to get the deployment information - then format to json
     db_client = boto3.client('dynamodb')
     db_item = getItem()['Item']
-
     json_item = dict()
     dynamo_to_json(json_item,db_item)
+    # json_item is the variable name for the dynamodb Item now.
+
+    if task == "create":
+
+        LOGGER.info("Performing create on MediaPackage resources for the %s deployment " % (deployment_name))
+
+        channels = json_item['Channels']
+        mediapackage = dict()
+        region = json_item['Region']
+
+        #initialize mediapackage boto3 client
+        emp_client = boto3.client('mediapackage',region_name=region)
+
+        db_mediapackage_config_template = dict()
+        # channel_template = db_mediapackage_config_template["1"]["M"]
 
 
-    channels = json_item['Channels']
-    mediapackage = dict()
-    region = json_item['Region']
+        # Iterate through channels and create MediaPackage channels
+        for channel in range(1,int(channels)+1):
 
-    emp_client = boto3.client('mediapackage',region_name=region)
+            endpoint_list = []
 
-    db_mediapackage_config_template = dict()
-    # channel_template = db_mediapackage_config_template["1"]["M"]
+            channel_name = "{0:0=2d}_{1}_{2}".format(channel,deployment_name,unique_timestamp)
 
+            # Create MediaPackage Channel
+            create_emp_response = create_mediapackage_channel(channel_name)
 
-    # Iterate through channels and create MediaPackage channels
-    for channel in range(1,int(channels)+1):
+            if len(exceptions) > 0:
 
-        endpoint_list = []
+                return errorOut()
 
-        channel_name = "{0:0=2d}_{1}_{2}".format(channel,deployment_name,unique_timestamp)
+            LOGGER.info("Created MediaPackage Channel: channel number %s , Channel name %s" % (str(channel),channel_name))
 
-        # Create MediaPackage Channel
-        create_emp_response = create_mediapackage_channel(channel_name)
+            # Create MediaPackage Channel Endpoints
+            endpoints = []
+            endpoints.clear()
+            create_mediapackage_endpoint(channel_name)
+
+            if len(exceptions) > 0:
+                return errorOut()
+
+            # Get response data to variables
+            channel_id = create_emp_response['Id']
+            channel_arn = create_emp_response['Arn']
+
+            channel_dict = dict()
+            channel_dict['Endpoints'] = endpoints
+            channel_dict['Channel_Name'] = channel_id
+            channel_dict['Channel_Arn'] = channel_arn
+
+            db_mediapackage_config_template[str(channel)] = channel_dict
 
         if len(exceptions) > 0:
-
             return errorOut()
 
-        LOGGER.info("Created MediaPackage Channel: channel number %s , Channel name %s" % (str(channel),channel_name))
+        # Update the DB json with the MediaConnect flow information
+        json_item['MediaPackage'] = db_mediapackage_config_template
 
-        # Create MediaPackage Channel Endpoints
-        endpoints = []
-        endpoints.clear()
-        create_mediapackage_endpoint(channel_name)
+        emp_dict_to_dynamo = dict()
+        json_to_dynamo(emp_dict_to_dynamo,json_item)
 
+        putItem(emp_dict_to_dynamo)
         if len(exceptions) > 0:
             return errorOut()
+        else:
+            event['status'] = "Completed creation of MediaPackage channels with no issues"
+            return event
 
-        # Get response data to variables
-        channel_id = create_emp_response['Id']
-        channel_arn = create_emp_response['Arn']
+    else: # this is delete
 
-        channel_dict = dict()
-        channel_dict['Endpoints'] = endpoints
-        channel_dict['Channel_Name'] = channel_id
-        channel_dict['Channel_Arn'] = channel_arn
+        region = json_item['Region']
 
-        db_mediapackage_config_template[str(channel)] = channel_dict
+        #initialize mediapackage boto3 client
+        emp_client = boto3.client('mediapackage',region_name=region)
 
-    if len(exceptions) > 0:
-        return errorOut()
+        LOGGER.info("Performing delete on MediaPackage resources for the %s deployment " % (deployment_name))
 
-    # Update the DB json with the MediaConnect flow information
-    json_item['MediaPackage'] = db_mediapackage_config_template
+        endpoint_delete_exceptions = []
+        channel_delete_exceptions = []
 
-    emp_dict_to_dynamo = dict()
-    json_to_dynamo(emp_dict_to_dynamo,json_item)
+        # go channel by channel, delete endpoints first, then do channel
+        mediapackage_record = json_item['MediaPackage']
+        mediapackage_channels = list(mediapackage_record.keys())
 
-    return emp_dict_to_dynamo
+        LOGGER.info("There are %s channels to delete. Iterating through them now" % (len(str(mediapackage_channels))))
 
-    putItem(emp_dict_to_dynamo)
-    if len(exceptions) > 0:
-        return errorOut()
-    else:
-        event['status'] = "Completed creation of MediaPackage channels with no issues"
+        for channel in mediapackage_channels:
+            channel_id = mediapackage_record[channel]['Channel_Name']
+            endpoints = mediapackage_record[channel]['Endpoints']
+
+            for endpoint in endpoints:
+
+                endpoint_id = endpoint['id']
+
+                # DELETE ENDPOINT
+                LOGGER.info("Deleting endpoint %s in MediaPackage channel %s" % (endpoint_id,channel_id))
+
+                delete_mediapackage_endpoint(endpoint_id)
+
+            # DELETE CHANNEL
+            LOGGER.info("Deleting MediaPackage channel %s" % (channel_id))
+            delete_mediapackage_channel(channel_id)
+
+
+        ## Don't error if there are exceptions, we'll clean them up later
+
+        event['status'] = "Completed deletion of MediaPackage Channels and Endpoints"
+        event['emp_endpoint_delete_exceptions'] = endpoint_delete_exceptions
+        event['emp_channel_delete_exceptions'] = channel_delete_exceptions
         return event
