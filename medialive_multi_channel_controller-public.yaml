@@ -469,6 +469,8 @@ Resources:
       Environment:
         Variables:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
+          OttHDTemplate: !Sub S3://${S3Bucket}/${FileMover.medialive_channel_template_hd_abr}
+          OttSDTemplate: !Sub S3://${S3Bucket}/${FileMover.medialive_channel_template_sd_abr}
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
