@@ -313,10 +313,10 @@ def lambda_handler(event, context):
             if value_type == "M":
                 value = my_dict[k][value_type]
 
-                for i in range(0,len(value)):
-                    dynamodb_item_m = dict()
-                    dynamo_to_json(dynamodb_item_m,value)
-                    v = dynamodb_item_m
+                # for i in range(0,len(value)):
+                dynamodb_item_m = dict()
+                dynamo_to_json(dynamodb_item_m,value)
+                #     v = dynamodb_item_m
 
                 value.update(dynamodb_item_m)
                 dicttopopulate.update({k:value})
@@ -328,20 +328,22 @@ def lambda_handler(event, context):
             elif value_type == "L": # list
                 value = my_dict[k][value_type]
 
+                new_item_list = []
+
                 for i in range(0,len(value)):
                     dynamodb_item_list = dict()
                     dynamo_to_json(dynamodb_item_list,value[i])
 
-                    value[i] = dynamodb_item_list
+                new_item_list.append(dynamodb_item_list)
 
-                dicttopopulate.update({k:value})
+                dicttopopulate.update({k:new_item_list})
+
             elif k == "M":
 
                 dynamodb_item_m = dict()
                 dynamo_to_json(dynamodb_item_m,v)
                 v = dynamodb_item_m
                 dicttopopulate.update(v)
-
 
     ###
     ### Function Code Block = END
@@ -392,7 +394,8 @@ def lambda_handler(event, context):
         if len(exceptions) > 0:
             return errorOut()
         event['status'] = "IN PROGRESS"
-        return event
+
+        return api_response(200,{"status":"creation in progress"})
 
     elif task == "delete":
         # check if DB table exists
@@ -421,7 +424,7 @@ def lambda_handler(event, context):
         if len(exceptions) > 0:
             return errorOut()
         event['status'] = "IN PROGRESS"
-        return event
+        return api_response(200,{"status":"deletion in progress"})
 
     elif task == "start":
         # check if DB table exists
@@ -450,7 +453,7 @@ def lambda_handler(event, context):
         if len(exceptions) > 0:
             return errorOut()
         event['status'] = "IN PROGRESS"
-        return event
+        return api_response(200,{"status":"group start notification under way..."})
 
     elif task == "stop":
         # check if DB table exists
@@ -477,7 +480,7 @@ def lambda_handler(event, context):
         if len(exceptions) > 0:
             return errorOut()
         event['status'] = "IN PROGRESS"
-        return event
+        return api_response(200,{"status":"group start notification under way..."})
 
     elif task == "list":
         table_names = listdbtables()
@@ -498,4 +501,4 @@ def lambda_handler(event, context):
         return json_item
 
     else:
-        return "should not ever get here"
+        return api_response(500,{"status":"no idea how you ended up here"})

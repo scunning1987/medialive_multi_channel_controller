@@ -191,10 +191,10 @@ def lambda_handler(event, context):
             if value_type == "M":
                 value = my_dict[k][value_type]
 
-                for i in range(0,len(value)):
-                    dynamodb_item_m = dict()
-                    dynamo_to_json(dynamodb_item_m,value)
-                    v = dynamodb_item_m
+                # for i in range(0,len(value)):
+                dynamodb_item_m = dict()
+                dynamo_to_json(dynamodb_item_m,value)
+                #     v = dynamodb_item_m
 
                 value.update(dynamodb_item_m)
                 dicttopopulate.update({k:value})
@@ -207,6 +207,7 @@ def lambda_handler(event, context):
                 value = my_dict[k][value_type]
 
                 new_item_list = []
+
                 for i in range(0,len(value)):
                     dynamodb_item_list = dict()
                     dynamo_to_json(dynamodb_item_list,value[i])
