@@ -156,6 +156,13 @@ def lambda_handler(event, context):
     else:
         pipeline = "SINGLE_PIPELINE"
 
+    # Need to obtain channel creation data
+    try:
+        channel_data = request_query_strings['channel_data']
+    except Exception as e:
+        msg = "Unable to get channel_data key from request, continuing with empty channel data. Default create behavior will be to deploy OTT HD channels only : %s " % (e)
+        LOGGER.warning(msg)
+        channel_data = ""
 
     ###
     ### If the function reaches here, then valid values were received
@@ -254,7 +261,7 @@ def lambda_handler(event, context):
         LOGGER.info("Completed all api handler tasks, now initiating Step Functions to complete the video deployment tasks for action : %s " % (task))
 
         try:
-            cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name}
+            cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data}
             LOGGER.info("Data to start Step Functions State Machine : %s " % (cwatch_event))
             response = cw_client.put_events(Entries=[{
                 "Source": "lambda.amazonaws.com",
