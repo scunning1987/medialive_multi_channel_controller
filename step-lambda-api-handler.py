@@ -5,6 +5,7 @@ import logging
 import datetime
 import re
 import logging
+import base64
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
@@ -22,8 +23,6 @@ def lambda_handler(event, context):
             'body': json.dumps(response_body)
         }
 
-
-
     # enable for event debugging
     #return api_response(200,event)
 
@@ -39,6 +38,8 @@ def lambda_handler(event, context):
 
     # get request time
     event['requestContext']['requestTime'] = current_time
+
+    httpMethod = event['httpMethod']
 
     ## Validate Path first
     request_path = event['path']
@@ -166,9 +167,15 @@ def lambda_handler(event, context):
         LOGGER.warning(msg)
         channel_data = ""
 
+
+    # Parse the channel put data if present
     if task == "create" and httpMethod == "PUT":
-        if "body" in event['body']:
-            channel_data = event['body']
+        if "body" in list(event.keys()):
+
+            if event['isBase64Encoded']:
+                channel_data = json.loads(base64.b64decode(event['body']).decode("utf-8"))
+            else:
+                channel_data = event['body']
         else:
             channel_data = ""
 
