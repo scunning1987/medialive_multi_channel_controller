@@ -122,6 +122,15 @@ def lambda_handler(event, context):
         LOGGER.info("Done Creating MediaLive Channel : %s " % (channel_name))
         return create_channel_response
 
+    def deleteEMLInput(input_id):
+        try:
+            response = eml_client.delete_input(InputId=input_id)
+        except Exception as e:
+            msg = "Unable to delete input, got exception : %s " % (e)
+            delete_exceptions.append(msg)
+            return msg
+        return response
+
 
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
@@ -205,8 +214,6 @@ def lambda_handler(event, context):
 
     json_item = dict()
     dynamo_to_json(json_item,db_item)
-
-    return json_item
 
     if task == "create":
 
@@ -403,6 +410,24 @@ def lambda_handler(event, context):
         #     event['status'] = "Completed creation of MediaLive channels with no issues"
         #     return event
 
+        event['status'] = "Completed creation of MediaLive inputs with no issues"
+        return event
+
     else: # we're here to delete
 
-        return json_item
+        medialive_channels = json_item['MediaLive']
+        delete_exceptions = []
+
+        for channel in list(medialive_channels.keys()):
+
+            input_attachments = json_item['MediaLive'][channel]
+
+            for input_attachment in input_attachments:
+                input_id = input_attachment['Id']
+
+                ## Send EML Input Delete command
+                deleteEMLInput(input_id)
+
+        event['status'] = "Completed deletion of MediaLive Inputs"
+        event['eml_input_delete_exceptions'] = delete_exceptions
+        return event
