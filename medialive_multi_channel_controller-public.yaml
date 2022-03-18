@@ -469,10 +469,11 @@ Resources:
       Environment:
         Variables:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
-          OttHDTemplate: !Sub S3://${S3Bucket}/${FileMover.medialive_channel_template_hd_abr}
-          OttSDTemplate: !Sub S3://${S3Bucket}/${FileMover.medialive_channel_template_sd_abr}
-          MuxHDTemplate: !Sub S3://${S3Bucket}/${FileMover.medialive_channel_template_hdavc_smux}
-          MuxSDTemplate: !Sub S3://${S3Bucket}/${FileMover.medialive_channel_template_sdavc_smux}
+          S3Bucket: !Ref S3Bucket
+          OttHDTemplate: !GetAtt FileMover.medialive_channel_template_hd_abr
+          OttSDTemplate: !GetAtt FileMover.medialive_channel_template_sd_abr
+          MuxHDTemplate: !GetAtt FileMover.medialive_channel_template_hdavc_smux
+          MuxSDTemplate: !GetAtt FileMover.medialive_channel_template_sdavc_smux
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
