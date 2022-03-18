@@ -1,0 +1,30 @@
+{
+  "copy": "",
+  "mux": {
+    "multiplex_name":"string",
+    "create": "bool",
+    "bitrate": "string"
+  },
+  "channels": [
+    {
+      "channel_name": "string",
+      "frame_size": "string",
+      "codec": "string",
+      "input": {
+        "type": "MEDIACONNECT",
+        "create": "bool",
+        "arn": "string"
+      },
+      "mux_params": {
+        "program_name": "string",
+        "program_number": "string",
+        "service_name": "string",
+        "provider_name": "string",
+        "min_bitrate": "string",
+        "max_bitrate": "string",
+        "cbr": "string",
+        "priority": "string"
+      }
+    }
+  ]
+}

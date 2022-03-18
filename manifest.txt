@@ -18,3 +18,6 @@ https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controlle
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-startchannels.py
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-stopchannels.py
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/step-lambda-channelmapupdate.py
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive_channel_template_hd_abr.json
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive_channel_template_sd_abr.json
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/ui_group_create_sample_payload.json
