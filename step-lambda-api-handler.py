@@ -22,6 +22,8 @@ def lambda_handler(event, context):
             'body': json.dumps(response_body)
         }
 
+
+
     # enable for event debugging
     #return api_response(200,event)
 
@@ -277,11 +279,6 @@ def lambda_handler(event, context):
         LOGGER.info("Successfully sent task to Step Functions")
         return response
 
-    def errorOut():
-        event['status'] = exceptions
-        return event
-
-
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
         for k,v in my_dict.items():
@@ -361,13 +358,13 @@ def lambda_handler(event, context):
         table_names = listdbtables()
 
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         if dynamodb_table_name not in table_names:
             LOGGER.info("Database exists, moving on...")
             ## Need to create a new DynamoDB table
             createdbtable()
             if len(exceptions) > 0:
-                return errorOut()
+                return api_response(500,exceptions)
         else:
             ### table exists, check for item
             LOGGER.info("Database exists. Looking for item...")
@@ -375,24 +372,24 @@ def lambda_handler(event, context):
             query_response = listitems()
 
             if len(exceptions) > 0:
-                return errorOut()
+                return api_response(500,exceptions)
 
             itemexists = itemcheck(query_response)
             if len(exceptions) > 0:
-                return errorOut()
+                return api_response(500,exceptions)
             LOGGER.info("Does item exist in database: %s" % (str(itemexists)))
             if itemexists is True:
                 exceptions.append("WARNING: Found deployment name in database")
-                return errorOut()
+                return api_response(500,exceptions)
             else:
                 ### Need to put item in database
                 createitem()
                 if len(exceptions) > 0:
-                    return errorOut()
+                    return api_response(500,exceptions)
 
         triggerStepFunctions()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
 
         return api_response(200,{"status":"creation in progress"})
@@ -401,28 +398,28 @@ def lambda_handler(event, context):
         # check if DB table exists
         table_names = listdbtables()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         if dynamodb_table_name not in table_names:
             exceptions.append("INFO: There are currently no deployments managed by ott auto")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # check if deployment exists
         query_response = listitems()
 
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
 
         itemexists = itemcheck(query_response)
 
         if itemexists is False:
             exceptions.append("The name you specified doesnt exist as a deployment")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # do stuff
         channels = ""
         triggerStepFunctions()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
         return api_response(200,{"status":"deletion in progress"})
 
@@ -430,28 +427,28 @@ def lambda_handler(event, context):
         # check if DB table exists
         table_names = listdbtables()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         if dynamodb_table_name not in table_names:
             exceptions.append("INFO: There are currently no deployments managed by ott auto")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # check if deployment exists
 
         query_response = listitems()
 
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
 
         itemexists = itemcheck(query_response)
 
         if itemexists is False:
             exceptions.append("The name you specified doesnt exist as a deployment")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # do stuff
         triggerStepFunctions()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
         return api_response(200,{"status":"group start notification under way..."})
 
@@ -459,41 +456,41 @@ def lambda_handler(event, context):
         # check if DB table exists
         table_names = listdbtables()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         if dynamodb_table_name not in table_names:
             exceptions.append("INFO: There are currently no deployments managed by ott auto")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # check if deployment exists
         query_response = listitems()
 
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
 
         itemexists = itemcheck(query_response)
         if itemexists is False:
             exceptions.append("The name you specified doesnt exist as a deployment")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # do stuff
         triggerStepFunctions()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
         return api_response(200,{"status":"group start notification under way..."})
 
     elif task == "list":
         table_names = listdbtables()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
         if dynamodb_table_name not in table_names:
             exceptions.append("INFO: Currently you have no deployments")
-            return errorOut()
+            return api_response(500,exceptions)
 
         # Get list of items in db = deployments
         dbitems = listitems()
         if len(exceptions) > 0:
-            return errorOut()
+            return api_response(500,exceptions)
 
         json_item = dict()
         dynamo_to_json(json_item,dbitems)

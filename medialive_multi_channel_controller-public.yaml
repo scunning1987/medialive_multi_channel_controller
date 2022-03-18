@@ -502,6 +502,7 @@ Resources:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
           FrameCaptureToJpgPath: status_thumbnails/[thumbnail-name]
           S3Bucket: !Ref S3Bucket
+          RoleArn: !Ref MediaLiveAccessRole
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
