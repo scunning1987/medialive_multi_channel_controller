@@ -150,10 +150,10 @@ Resources:
   ##
   ## IAM Role MediaLive / MediaConnect
   ##
-  IAMRoleForMediaLive:
+  MediaLiveAccessRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: MediaLiveAccessRole-1
+      RoleName: MediaLiveAccessRole-${Deployment_Name}
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
@@ -1383,6 +1383,33 @@ Resources:
     Properties:
       AuthorizationType: NONE
       HttpMethod: GET
+      Integration:
+        #Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - StatusCode: '200'
+        Type: AWS_PROXY
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt StepAPIHandler.Arn
+            - /invocations
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: !Ref EmptyApiModel
+      ResourceId: !Ref ProxyPlusResourceWorkflow
+      RestApiId: !Ref ApiGateway
+    DependsOn:
+      - ApiGateway
+
+  PutMethodForWorkflow:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: PUT
       Integration:
         #Credentials: !GetAtt ApiGatewayRole.Arn
         IntegrationHttpMethod: POST

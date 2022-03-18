@@ -166,6 +166,12 @@ def lambda_handler(event, context):
         LOGGER.warning(msg)
         channel_data = ""
 
+    if task == "create" and httpMethod == "PUT":
+        if "body" in event['body']:
+            channel_data = event['body']
+        else:
+            channel_data = ""
+
     ###
     ### If the function reaches here, then valid values were received
     ###
