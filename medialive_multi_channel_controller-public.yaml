@@ -502,6 +502,10 @@ Resources:
         Variables:
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
           FrameCaptureToJpgPath: status_thumbnails/[thumbnail-name]
+          OttHDTemplate: !GetAtt FileMover.medialive_channel_template_hd_abr
+          OttSDTemplate: !GetAtt FileMover.medialive_channel_template_sd_abr
+          MuxHDTemplate: !GetAtt FileMover.medialive_channel_template_hdavc_smux
+          MuxSDTemplate: !GetAtt FileMover.medialive_channel_template_sdavc_smux
           S3Bucket: !Ref S3Bucket
           RoleArn: !Ref MediaLiveAccessRole
       Tags:
