@@ -1612,9 +1612,9 @@ Outputs:
     Description: The UI to control your channels
     Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard/${S3Bucket}/${FileMover.ui}
 
-  MediaLiveAccessRole:
+  MediaLiveAccessRoleArn:
     Description: This is the role that should be used by MediaLive
-    Value: !GetAtt IAMRoleForMediaLive.Arn
+    Value: !GetAtt MediaLiveAccessRole.Arn
 
 
   #APIEndpointURLCTRL:
