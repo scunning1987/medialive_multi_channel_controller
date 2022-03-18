@@ -89,10 +89,10 @@ def lambda_handler(event, context):
                 return "Couldn't create input, got exception %s " % (e)
             return input_create_response
 
-        elif input_type == "MP4":
+        elif input_type == "MP4_FILE":
 
             try:
-                input_create_response = eml_client.create_input(Type=input_type,Name=input_name_mp4,Sources=[{'Url':eml_input['url']}],RoleArn=role_arn)
+                input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']}],RoleArn=role_arn)
             except Exception as e:
                 exceptions.append("Couldn't create input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
@@ -102,7 +102,7 @@ def lambda_handler(event, context):
         elif input_type == "URL_PULL":
 
             try:
-                input_create_response = eml_client.create_input(Type=input_type,Name=input_name_mp4,Sources=[{'Url':eml_input['url']}],RoleArn=role_arn)
+                input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']}],RoleArn=role_arn)
             except Exception as e:
                 exceptions.append("Couldn't create input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
@@ -171,8 +171,11 @@ def lambda_handler(event, context):
 
                 new_item_list = []
 
+                dynamodb_item_list = dict()
                 for i in range(0,len(value)):
-                    dynamodb_item_list = dict()
+                    LOGGER.info("got here")
+                    LOGGER.warning(i)
+
                     dynamo_to_json(dynamodb_item_list,value[i])
 
                 new_item_list.append(dynamodb_item_list)
@@ -203,6 +206,7 @@ def lambda_handler(event, context):
     json_item = dict()
     dynamo_to_json(json_item,db_item)
 
+    return json_item
 
     if task == "create":
 
@@ -210,6 +214,9 @@ def lambda_handler(event, context):
 
         pipeline = json_item['Pipeline']
         region = json_item['Region']
+
+        # initialize medialive boto3 client
+        eml_client = boto3.client('medialive', region_name=region)
 
         # task = event['detail']['task']
         # channels = event['detail']['channels']
@@ -233,14 +240,15 @@ def lambda_handler(event, context):
         else:
 
             #return json_item
+            input_attachments = []
             for channel in range(1,int(channels)+1):
 
                 input_name_prefix = "%s_%02d" % (deployment_name,channel)
 
                 eml_input_list = [
                     {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
-                    {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4","url":"s3ssl://$urlPath$"},
-                    {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4","url":"s3ssl://$urlPath$"}
+                    {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
+                    {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
                     #{"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
                 ]
 
@@ -253,132 +261,148 @@ def lambda_handler(event, context):
                         return errorOut()
 
 
-        # create default inputs
-        # 1. Dummy HLS Pull, 2. MP4 dynamic, 3. MP4 Loop
+                    input_attachments.append(input_create_response['Input'])
 
-    # channels = db_item['Channels']['S']
-    # medialive = db_item['MediaLive']
-    # region = db_item['Region']['S']
-    # pipeline = db_item['Pipeline']['S']
-    # eml_client = boto3.client('medialive', region_name=region)
+                medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
-    # db_medialive_config_template = medialive['M']
-    # channel_template = db_medialive_config_template["1"]["M"]
+            json_item['MediaLive'] = medialive_db_item
 
-    # loglevel = os.environ['LogLevel']
-    # role_arn = os.environ['RoleArn']
-    # max_resolution = os.environ['Input_MaxResolution']
-    # max_bitrate = os.environ['Input_MaxBitrate']
-    # input_codec = os.environ['Input_Codec']
-    # jpg_bucket = os.environ['JPG_Bucket']
-    # jpg_base_path = os.environ['JPG_KeyPath']
+            eml_dict_to_dynamo = dict()
+            json_to_dynamo(eml_dict_to_dynamo,json_item)
 
-    # with open('eml_channel_template.json', 'r') as f:
-    #     eml_template_string = f.read()
-    # emltemplate = json.loads(eml_template_string)
+            putItem(eml_dict_to_dynamo)
+            if len(exceptions) > 0:
+                return errorOut()
+            else:
+                event['status'] = "Completed creation of MediaLive inputs with no issues"
+                return event
 
-    # # pull some data from the attached channel template
-    # encoder_settings = emltemplate['EncoderSettings']
-    # destinations_template = emltemplate['Destinations']
+            # create default inputs
+            # 1. Dummy HLS Pull, 2. MP4 dynamic, 3. MP4 Loop
 
-    # # Iterate through channels and create MediaConnect flows for each channel
+        # channels = db_item['Channels']['S']
+        # medialive = db_item['MediaLive']
+        # region = db_item['Region']['S']
+        # pipeline = db_item['Pipeline']['S']
+        # eml_client = boto3.client('medialive', region_name=region)
 
-    # for channel in range(1,int(channels)+1):
+        # db_medialive_config_template = medialive['M']
+        # channel_template = db_medialive_config_template["1"]["M"]
 
-    #     endpoint_list = []
-    #     input_attachments = []
-    #     dynamo_input_attachments = []
-    #     input_attachments.clear()
-    #     dynamo_input_attachments.clear()
+        # loglevel = os.environ['LogLevel']
+        # role_arn = os.environ['RoleArn']
+        # max_resolution = os.environ['Input_MaxResolution']
+        # max_bitrate = os.environ['Input_MaxBitrate']
+        # input_codec = os.environ['Input_Codec']
+        # jpg_bucket = os.environ['JPG_Bucket']
+        # jpg_base_path = os.environ['JPG_KeyPath']
 
-    #     channel_name = "{0:0=2d}_{1}_{2}".format(channel,deployment_name,unique_timestamp)
-    #     input_name = "{0:0=2d}_{1}".format(channel,deployment_name)
+        # with open('eml_channel_template.json', 'r') as f:
+        #     eml_template_string = f.read()
+        # emltemplate = json.loads(eml_template_string)
 
-    #     # Get MediaConnect flow Arns:
-    #     flows = []
-    #     flows.clear()
-    #     for flow in db_item['MediaConnect']['M'][str(channel)]['L']:
-    #         flows.append({'FlowArn':flow['M']['Flow_Arn']['S']})
+        # # pull some data from the attached channel template
+        # encoder_settings = emltemplate['EncoderSettings']
+        # destinations_template = emltemplate['Destinations']
 
-    #     # Create MediaLive Inputs
-    #     #
-    #     #  EMX Input
-    #     #  Dynamic MP4 input
-    #     input_types = ["MediaConnect","MP4"]
-    #     input_information = dict()
+        # # Iterate through channels and create MediaConnect flows for each channel
 
-    #     for input_type in input_types:
-    #         if input_type == "MP4":
-    #             source_end_behavior = "LOOP"
-    #         else:
-    #             source_end_behavior = "CONTINUE"
+        # for channel in range(1,int(channels)+1):
 
-    #         input_create_response = createEMLInput(input_type,input_name,flows)
-    #         if len(exceptions) > 0:
-    #             return errorOut()
-    #         dynamo_input_attachments.append({"S":input_create_response['Input']['Id']})
-    #         input_attachments.append({
-    #             "InputId": input_create_response['Input']['Id'],
-    #             "InputAttachmentName": "%s_%s" % (input_name,input_type.lower()),
-    #             "InputSettings": {
-    #                 "SourceEndBehavior": source_end_behavior,
-    #                 "InputFilter": "AUTO",
-    #                 "FilterStrength": 1,
-    #                 "DeblockFilter": "DISABLED",
-    #                 "DenoiseFilter": "DISABLED",
-    #                 "Smpte2038DataPreference": "IGNORE",
-    #                 "AudioSelectors": [{"Name":"1"}],
-    #                 "CaptionSelectors": []
-    #             }
-    #         })
+        #     endpoint_list = []
+        #     input_attachments = []
+        #     dynamo_input_attachments = []
+        #     input_attachments.clear()
+        #     dynamo_input_attachments.clear()
 
+        #     channel_name = "{0:0=2d}_{1}_{2}".format(channel,deployment_name,unique_timestamp)
+        #     input_name = "{0:0=2d}_{1}".format(channel,deployment_name)
 
-    #     LOGGER.info("Created MediaLive Inputs for : channel number %s , Channel name %s" % (str(channel),channel_name))
+        #     # Get MediaConnect flow Arns:
+        #     flows = []
+        #     flows.clear()
+        #     for flow in db_item['MediaConnect']['M'][str(channel)]['L']:
+        #         flows.append({'FlowArn':flow['M']['Flow_Arn']['S']})
 
-    #     # MediaLive Destinations
-    #     emp_channel_id = db_item['MediaPackage']['M'][str(channel)]['M']['Channel_Name']['S']
-    #     jpg_full_path = ""
+        #     # Create MediaLive Inputs
+        #     #
+        #     #  EMX Input
+        #     #  Dynamic MP4 input
+        #     input_types = ["MediaConnect","MP4"]
+        #     input_information = dict()
 
-    #     for destination in destinations_template:
-    #         if 'MediaPackageSettings' in destination: # This output is to MediaPackage
-    #             LOGGER.debug("This is MediaPackage destination - EMP: %s" % (destination))
-    #             destination['MediaPackageSettings'][0]['ChannelId'] = emp_channel_id # Path to put MediaPackage Channel ID
-    #         elif 'Settings' in destination:
-    #             LOGGER.debug("This is S3 Destination - JPG: %s" % (destination))
-    #             # ottauto/deployments
-    #             jpg_full_path = "s3://%s/%s/%s/%s/status" % (jpg_bucket,jpg_base_path,deployment_name,channel)
-    #             LOGGER.debug("MediaLive Channel %s outputting JPG to %s" % (channel, jpg_full_path))
-    #             destination['Settings'][0]['Url'] = jpg_full_path # Path to s3 published JPG
+        #     for input_type in input_types:
+        #         if input_type == "MP4":
+        #             source_end_behavior = "LOOP"
+        #         else:
+        #             source_end_behavior = "CONTINUE"
 
-    #     # Create Channel
-    #     create_channel_response = createEMLChannel()
-
-    #     if len(exceptions) > 0:
-    #         return errorOut()
-
-    #     eml_channel_arn = create_channel_response['Channel']['Arn']
-
-    #     # update DB Item
-    #     channel_dict = dict()
-    #     channel_dict['MediaPackage_Output'] = {"S":emp_channel_id}
-    #     channel_dict['S3_Output'] = {'S':jpg_full_path}
-    #     channel_dict['Channel_Arn'] = {'S':eml_channel_arn}
-    #     channel_dict['Input_Attachments'] = {"L":dynamo_input_attachments}
-    #     channel_dict['Channel_Name'] = {"S":channel_name}
-
-    #     db_medialive_config_template[str(channel)] = {"M":channel_dict}
+        #         input_create_response = createEMLInput(input_type,input_name,flows)
+        #         if len(exceptions) > 0:
+        #             return errorOut()
+        #         dynamo_input_attachments.append({"S":input_create_response['Input']['Id']})
+        #         input_attachments.append({
+        #             "InputId": input_create_response['Input']['Id'],
+        #             "InputAttachmentName": "%s_%s" % (input_name,input_type.lower()),
+        #             "InputSettings": {
+        #                 "SourceEndBehavior": source_end_behavior,
+        #                 "InputFilter": "AUTO",
+        #                 "FilterStrength": 1,
+        #                 "DeblockFilter": "DISABLED",
+        #                 "DenoiseFilter": "DISABLED",
+        #                 "Smpte2038DataPreference": "IGNORE",
+        #                 "AudioSelectors": [{"Name":"1"}],
+        #                 "CaptionSelectors": []
+        #             }
+        #         })
 
 
-    # # Update the DB json with the MediaLive channel information
-    # db_item['MediaLive'] = {'M':db_medialive_config_template}
+        #     LOGGER.info("Created MediaLive Inputs for : channel number %s , Channel name %s" % (str(channel),channel_name))
 
-    # putItem(db_item)
-    # if len(exceptions) > 0:
-    #     return errorOut()
-    # else:
-    #     event['status'] = "Completed creation of MediaLive channels with no issues"
-    #     return event
+        #     # MediaLive Destinations
+        #     emp_channel_id = db_item['MediaPackage']['M'][str(channel)]['M']['Channel_Name']['S']
+        #     jpg_full_path = ""
 
-else: # we're here to delete
+        #     for destination in destinations_template:
+        #         if 'MediaPackageSettings' in destination: # This output is to MediaPackage
+        #             LOGGER.debug("This is MediaPackage destination - EMP: %s" % (destination))
+        #             destination['MediaPackageSettings'][0]['ChannelId'] = emp_channel_id # Path to put MediaPackage Channel ID
+        #         elif 'Settings' in destination:
+        #             LOGGER.debug("This is S3 Destination - JPG: %s" % (destination))
+        #             # ottauto/deployments
+        #             jpg_full_path = "s3://%s/%s/%s/%s/status" % (jpg_bucket,jpg_base_path,deployment_name,channel)
+        #             LOGGER.debug("MediaLive Channel %s outputting JPG to %s" % (channel, jpg_full_path))
+        #             destination['Settings'][0]['Url'] = jpg_full_path # Path to s3 published JPG
 
-return json_item
+        #     # Create Channel
+        #     create_channel_response = createEMLChannel()
+
+        #     if len(exceptions) > 0:
+        #         return errorOut()
+
+        #     eml_channel_arn = create_channel_response['Channel']['Arn']
+
+        #     # update DB Item
+        #     channel_dict = dict()
+        #     channel_dict['MediaPackage_Output'] = {"S":emp_channel_id}
+        #     channel_dict['S3_Output'] = {'S':jpg_full_path}
+        #     channel_dict['Channel_Arn'] = {'S':eml_channel_arn}
+        #     channel_dict['Input_Attachments'] = {"L":dynamo_input_attachments}
+        #     channel_dict['Channel_Name'] = {"S":channel_name}
+
+        #     db_medialive_config_template[str(channel)] = {"M":channel_dict}
+
+
+        # # Update the DB json with the MediaLive channel information
+        # db_item['MediaLive'] = {'M':db_medialive_config_template}
+
+        # putItem(db_item)
+        # if len(exceptions) > 0:
+        #     return errorOut()
+        # else:
+        #     event['status'] = "Completed creation of MediaLive channels with no issues"
+        #     return event
+
+    else: # we're here to delete
+
+        return json_item
