@@ -340,8 +340,9 @@ def lambda_handler(event, context):
 
                 new_item_list = []
 
+                dynamodb_item_list = dict()
                 for i in range(0,len(value)):
-                    dynamodb_item_list = dict()
+
                     dynamo_to_json(dynamodb_item_list,value[i])
 
                 new_item_list.append(dynamodb_item_list)
