@@ -146,13 +146,16 @@ def lambda_handler(event, context):
             elif isinstance(v,str):
                 dicttopopulate.update({k:{"S":v}})
             elif isinstance(v,list):
+
+                new_item_list = []
                 for i in range(0,len(v)):
                     dynamodb_item_list = dict()
                     json_to_dynamo(dynamodb_item_list,v[i])
 
-                    v[i] = {"M":dynamodb_item_list}
+                    #v[i] = {"M":dynamodb_item_list}
+                    new_item_list.append({"M":dynamodb_item_list})
 
-                dicttopopulate.update({k:{"L":v}})
+                dicttopopulate.update({k:{"L":new_item_list}})
 
     # DYNAMODB_JSON_DECONSTRUCTOR
     def dynamo_to_json(dicttopopulate,my_dict):
