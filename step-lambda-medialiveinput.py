@@ -250,7 +250,7 @@ def lambda_handler(event, context):
         else:
 
             #return json_item
-            input_attachments = []
+
             for channel in range(1,int(channels)+1):
 
                 input_name_prefix = "%s_%02d" % (deployment_name,channel)
@@ -262,6 +262,8 @@ def lambda_handler(event, context):
                     #{"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
                 ]
 
+                input_attachments = []
+                input_attachments.clear()
                 for eml_input in eml_input_list:
 
                     input_create_response = createEMLInput(eml_input)
