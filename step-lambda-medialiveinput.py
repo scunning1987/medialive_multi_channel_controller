@@ -161,6 +161,7 @@ def lambda_handler(event, context):
     def dynamo_to_json(dicttopopulate,my_dict):
         for k,v in my_dict.items():
 
+
             value_type = list(my_dict[k].keys())[0]
 
             if value_type == "M":
@@ -182,15 +183,18 @@ def lambda_handler(event, context):
                 value = my_dict[k][value_type]
 
                 new_item_list = []
+                new_item_list.clear()
 
-                dynamodb_item_list = dict()
+
+
                 for i in range(0,len(value)):
-                    LOGGER.info("got here")
-                    LOGGER.warning(i)
+
+                    dynamodb_item_list = dict()
+                    dynamodb_item_list.clear()
 
                     dynamo_to_json(dynamodb_item_list,value[i])
 
-                new_item_list.append(dynamodb_item_list)
+                    new_item_list.append(dynamodb_item_list)
 
                 dicttopopulate.update({k:new_item_list})
 
@@ -200,6 +204,7 @@ def lambda_handler(event, context):
                 dynamo_to_json(dynamodb_item_m,v)
                 v = dynamodb_item_m
                 dicttopopulate.update(v)
+
 
     ###
     ### FUNCTIONS

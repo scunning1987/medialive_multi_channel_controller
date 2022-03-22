@@ -160,6 +160,7 @@ def lambda_handler(event, context):
 
         return response
 
+
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
         for k,v in my_dict.items():
@@ -174,17 +175,21 @@ def lambda_handler(event, context):
             elif isinstance(v,str):
                 dicttopopulate.update({k:{"S":v}})
             elif isinstance(v,list):
+
+                new_item_list = []
                 for i in range(0,len(v)):
                     dynamodb_item_list = dict()
                     json_to_dynamo(dynamodb_item_list,v[i])
 
-                    v[i] = {"M":dynamodb_item_list}
+                    #v[i] = {"M":dynamodb_item_list}
+                    new_item_list.append({"M":dynamodb_item_list})
 
-                dicttopopulate.update({k:{"L":v}})
+                dicttopopulate.update({k:{"L":new_item_list}})
 
     # DYNAMODB_JSON_DECONSTRUCTOR
     def dynamo_to_json(dicttopopulate,my_dict):
         for k,v in my_dict.items():
+
 
             value_type = list(my_dict[k].keys())[0]
 
@@ -207,13 +212,18 @@ def lambda_handler(event, context):
                 value = my_dict[k][value_type]
 
                 new_item_list = []
+                new_item_list.clear()
 
-                dynamodb_item_list = dict()
+
+
                 for i in range(0,len(value)):
+
+                    dynamodb_item_list = dict()
+                    dynamodb_item_list.clear()
 
                     dynamo_to_json(dynamodb_item_list,value[i])
 
-                new_item_list.append(dynamodb_item_list)
+                    new_item_list.append(dynamodb_item_list)
 
                 dicttopopulate.update({k:new_item_list})
 
@@ -223,6 +233,8 @@ def lambda_handler(event, context):
                 dynamo_to_json(dynamodb_item_m,v)
                 v = dynamodb_item_m
                 dicttopopulate.update(v)
+
+
 
     ###
     ### FUNCTIONS
