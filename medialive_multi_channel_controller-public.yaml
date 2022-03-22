@@ -585,9 +585,13 @@ Resources:
         S3Key: !GetAtt FileMover.step-lambda-channelmapupdate
       Environment:
         Variables:
+          FrameCaptureToJpgPath: status_thumbnails/[thumbnail-name]
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
           Bucket: !Ref S3Bucket
           Config_Key: !GetAtt FileMover.channel_map
+          APIGatewayURL: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com
+          S3Bucket: !Ref S3Bucket
+
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
