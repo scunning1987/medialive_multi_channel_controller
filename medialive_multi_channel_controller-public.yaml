@@ -507,7 +507,7 @@ Resources:
           MuxHDTemplate: !GetAtt FileMover.medialive_channel_template_hdavc_smux
           MuxSDTemplate: !GetAtt FileMover.medialive_channel_template_sdavc_smux
           S3Bucket: !Ref S3Bucket
-          RoleArn: !Ref MediaLiveAccessRole
+          RoleArn: !GetAtt MediaLiveAccessRole.Arn
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
