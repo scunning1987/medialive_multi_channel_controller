@@ -526,7 +526,7 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.8
       Handler: index.lambda_handler
-      Timeout: 10
+      Timeout: 60
       MemorySize: 10240
       Code:
         S3Bucket: !Ref S3Bucket
@@ -552,7 +552,7 @@ Resources:
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.8
       Handler: index.lambda_handler
-      Timeout: 10
+      Timeout: 60
       MemorySize: 10240
       Code:
         S3Bucket: !Ref S3Bucket
