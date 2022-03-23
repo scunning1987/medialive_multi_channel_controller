@@ -15,10 +15,10 @@ exceptions = []
 
 #json.loads(json.dumps(response, default = lambda o: f"<<non-serializable: {type(o).__qualname__}>>"))
 
-bucket = os.environ['Bucket']
-key = os.environ['Config_Key']
-
 def lambda_handler(event, context):
+
+    bucket = os.environ['Bucket']
+    key = os.environ['Config_Key']
 
     dynamodb_table_name= event['detail']['dynamodb_table_name']
     deployment_name = event['detail']['name']
@@ -62,6 +62,23 @@ def lambda_handler(event, context):
             return msg
 
         return json.loads(s3_raw_response['Body'].read())
+
+    def update_channel_map(bucket,key,s3_data):
+        LOGGER.info("Attempting to update channel map json with %s data" % (deployment_name))
+        content_type = "application/json"
+
+        # s3 boto3 client initialize
+        s3_client = boto3.client('s3', region_name=region)
+
+        try:
+            s3_response = s3_client.put_object(Body=json.dumps(s3_data), Bucket=bucket, Key=key,ContentType=content_type, CacheControl='no-cache')
+            LOGGER.info("Put object to S3")
+            event['status'] = "Channel map updated successfully"
+        except Exception as e:
+            msg = "Unable to update channel map json, got exception : %s " % (e)
+            LOGGER.error(msg)
+            event['status'] = msg
+            exceptions.append(msg)
 
 
     # JSON_TO_DYNAMODB_BUILDER
@@ -156,16 +173,57 @@ def lambda_handler(event, context):
 
     region = json_item['Region']
 
-    return json_item
+    channel_map_json = get_channel_map(bucket,key)
+
     if task == "create":
         ## Adding deployment info to channel map
         LOGGER.info("Adding group %s from channel map" % (deployment_name))
 
-        channel_map_json = get_channel_map(bucket,key)
+
 
         channel_list = []
 
+        # medialive - channel id, channel name, hd/sd, codec
+        # mediapackage - hls url
+        # jpg url
+        # emx flow (this is to be developed later)
 
+        for channel in range(1,int(json_item['Channels'])+1):
+
+            channel_data = dict()
+
+            # Get MediaLive info
+            medialive_channel = json_item['MediaLive'][str(channel)]
+
+            mux_channel_name = medialive_channel['Channel_Name']
+            mux_channel_id = medialive_channel['Channel_Arn'].split(":")[-1]
+            frame_size = "SD" # FIX
+            codec = "AVC" # FIX
+            ott_channel_id = medialive_channel['Channel_Arn'].split(":")[-1] # FIX
+
+
+            # Get MediaPackage info
+            mediapackage_channel = json_item['MediaPackage'][str(channel)]
+            ott_url = mediapackage_channel['Endpoints'][0]['url']
+
+            # Get JPG Output info
+            api_gateway_url = os.environ['APIGatewayURL']
+            # bucket
+            jpg_template_path = '/'.join(os.environ['FrameCaptureToJpgPath'].split("/")[0:-1])
+            #deployment_name
+            #channel_number
+            #status.jpg
+            jpg_url = "%s/%s/%s/%s/%s/status.jpg" % (api_gateway_url,bucket,jpg_template_path,deployment_name,str(channel))
+
+            channel_data['mux_channel_name'] = mux_channel_name
+            channel_data['mux_channel_id'] = mux_channel_id
+            channel_data['frame_size'] = frame_size
+            channel_data['codec'] = codec
+            channel_data['ott_channel_id'] = ott_channel_id
+            channel_data['ott_url'] = ott_url
+            channel_data['jpg_url'] = jpg_url
+
+            channel_list.append(channel_data)
 
         deployment_info = dict()
         deployment_info['mux_details'] = {"total_rate":0,"output":"emx_arn"}
@@ -176,31 +234,17 @@ def lambda_handler(event, context):
 
         channel_map_json['channel_groups'][deployment_name] = deployment_info
 
-        return channel_map_json
 
+        update_channel_map(bucket,key,channel_map_json)
 
-        # "channel_groups": {
-        #     "group_name": {
-        #       "mux_details": {
-        #         "total_rate": 35000000,
-        #         "output": "udp://10.10.10.10:12000"
-        #       },
-        #       "region": "us-west-2",
-        #       "channels": [
-        #         {
-        #           "mux_channel_name": "channel1",
-        #           "mux_channel_id": 123456,
-        #           "frame_size": "hd/sd",
-        #           "codec": "avc/mpeg2",
-        #           "ott_channel_id": 123457,
-        #           "ott_url": "https://...m3u8",
-        #           "jpg_url": "https://...jpg"
-        #         }
-        #       ]
-        #     }
-        #   },
-
+        return event
 
     else: ## this is delete
         ## Deletinng deployment info from channel map
         LOGGER.info("Deleting group %s from channel map" % (deployment_name))
+
+        channel_map_json['channel_groups'][deployment_name].pop()
+
+        update_channel_map(bucket,key,channel_map_json)
+
+        return event
