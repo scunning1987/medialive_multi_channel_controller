@@ -585,12 +585,11 @@ Resources:
         S3Key: !GetAtt FileMover.step-lambda-channelmapupdate
       Environment:
         Variables:
-          FrameCaptureToJpgPath: status_thumbnails/[thumbnail-name]
+          FrameCaptureToJpgPath: status_thumbnails/[groupname|channel|status]
           VideoPipelineDatabase: !Ref VideoPipelineDatabase
           Bucket: !Ref S3Bucket
           Config_Key: !GetAtt FileMover.channel_map
-          APIGatewayURL: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com
-          S3Bucket: !Ref S3Bucket
+          APIGatewayURL: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard
 
       Tags:
         - Key: StackName
@@ -1009,7 +1008,6 @@ Resources:
                   s3_data = json.loads(s3_response['Body'].read())
                   s3_data['control_api_endpoint_url'] = api_ctrl
                   api_endpoint_parse = urlparse(api_ctrl)
-                  s3_data['control_api_endpoint_host_header'] = api_endpoint_parse.netloc
 
                   content_type = "application/json"
 
