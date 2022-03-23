@@ -223,15 +223,17 @@ def lambda_handler(event, context):
     json_item = dict()
     dynamo_to_json(json_item,db_item)
 
+    region = json_item['Region']
+
+    # initialize medialive boto3 client
+    eml_client = boto3.client('medialive', region_name=region)
+
     if task == "create":
 
         medialive_db_item = dict()
 
         pipeline = json_item['Pipeline']
-        region = json_item['Region']
 
-        # initialize medialive boto3 client
-        eml_client = boto3.client('medialive', region_name=region)
 
         # task = event['detail']['task']
         # channels = event['detail']['channels']
