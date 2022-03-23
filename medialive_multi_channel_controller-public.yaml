@@ -1193,7 +1193,7 @@ Resources:
             },
             "MediaPackage": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:301520684698:function:dishauto13-StepMediaPackage-rakQtrgPiB1A",
+              "Resource": "${StepMediaPackage.Arn}",
               "Next": "MediaLiveInputs"
             },
             "MediaLiveInputs": {
@@ -1202,7 +1202,7 @@ Resources:
               "OutputPath": "$.Payload",
               "Parameters": {
                 "Payload.$": "$",
-                "FunctionName": "arn:aws:lambda:us-east-1:301520684698:function:dishauto13-StepMediaLiveInput-3LG9UEDLPq0X"
+                "FunctionName": "${StepMediaLiveInput.Arn}"
               },
               "Retry": [
                 {
@@ -1220,7 +1220,7 @@ Resources:
             },
             "MediaLiveChannels": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:301520684698:function:dishauto13-StepMediaLiveChannel-BpK6NWx9eZnO",
+              "Resource": "${StepMediaLiveChannel.Arn}",
               "Next": "Choice"
             },
             "Choice": {
@@ -1248,17 +1248,17 @@ Resources:
             },
             "ChannelMapUpdate": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:301520684698:function:dishauto13-StepChannelMapUpdate-7yipqfVGbOMc",
+              "Resource": "${StepChannelMapUpdate.Arn}",
               "End": true
             },
             "StartChannels": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:301520684698:function:dishauto13-StepStartChannels-VdWgkRgeIMNe",
+              "Resource": "${StepStartChannels.Arn}",
               "End": true
             },
             "StopChannels": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:301520684698:function:dishauto13-StepStopChannels-3DInTclM9CSq",
+              "Resource": "${StepStopChannels.Arn}",
               "End": true
             }
           }

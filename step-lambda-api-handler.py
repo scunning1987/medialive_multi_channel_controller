@@ -412,7 +412,7 @@ def lambda_handler(event, context):
                 if len(exceptions) > 0:
                     return api_response(500,exceptions)
 
-        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0}}
         triggerStepFunctions(cwatch_event)
         if len(exceptions) > 0:
             return api_response(500,exceptions)
@@ -443,7 +443,7 @@ def lambda_handler(event, context):
 
         # do stuff
         channels = ""
-        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0}}
         triggerStepFunctions(cwatch_event)
         if len(exceptions) > 0:
             return api_response(500,exceptions)
@@ -473,7 +473,8 @@ def lambda_handler(event, context):
             return api_response(500,exceptions)
 
         # do stuff
-        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}        triggerStepFunctions(cwatch_event)
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0}}
+        triggerStepFunctions(cwatch_event)
 
         if len(exceptions) > 0:
             return api_response(500,exceptions)
@@ -501,7 +502,7 @@ def lambda_handler(event, context):
             return api_response(500,exceptions)
 
         # do stuff
-        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0}}
         triggerStepFunctions(cwatch_event)
 
         if len(exceptions) > 0:
