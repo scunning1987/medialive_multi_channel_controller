@@ -354,6 +354,7 @@ def lambda_handler(event, context):
         ## Don't error if there are exceptions, we'll clean them up later
 
         event['status'] = "Completed deletion of MediaPackage Channels and Endpoints"
+        event['detail']['delete_tasks']['mediapackage_channels'] = 1
         event['emp_endpoint_delete_exceptions'] = endpoint_delete_exceptions
         event['emp_channel_delete_exceptions'] = channel_delete_exceptions
         return event

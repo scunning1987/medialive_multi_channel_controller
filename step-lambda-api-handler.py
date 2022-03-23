@@ -272,11 +272,10 @@ def lambda_handler(event, context):
             exceptions.append(msg)
             return api_response(500,{"status":exceptions})
 
-    def triggerStepFunctions():
+    def triggerStepFunctions(cwatch_event):
         LOGGER.info("Completed all api handler tasks, now initiating Step Functions to complete the video deployment tasks for action : %s " % (task))
 
         try:
-            cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data}
             LOGGER.info("Data to start Step Functions State Machine : %s " % (cwatch_event))
             response = cw_client.put_events(Entries=[{
                 "Source": "lambda.amazonaws.com",
@@ -413,7 +412,8 @@ def lambda_handler(event, context):
                 if len(exceptions) > 0:
                     return api_response(500,exceptions)
 
-        triggerStepFunctions()
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}
+        triggerStepFunctions(cwatch_event)
         if len(exceptions) > 0:
             return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
@@ -443,7 +443,8 @@ def lambda_handler(event, context):
 
         # do stuff
         channels = ""
-        triggerStepFunctions()
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}
+        triggerStepFunctions(cwatch_event)
         if len(exceptions) > 0:
             return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
@@ -472,7 +473,8 @@ def lambda_handler(event, context):
             return api_response(500,exceptions)
 
         # do stuff
-        triggerStepFunctions()
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}        triggerStepFunctions(cwatch_event)
+
         if len(exceptions) > 0:
             return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"
@@ -499,7 +501,9 @@ def lambda_handler(event, context):
             return api_response(500,exceptions)
 
         # do stuff
-        triggerStepFunctions()
+        cwatch_event = {"task":task,"name":name,"channels":channels,"dynamodb_table_name":dynamodb_table_name,"channel_data":channel_data,"delete_tasks":{"medialive_channels":0,"medialive_inputs":0,"mediapackage_channels":0,"channel_map":0,}}
+        triggerStepFunctions(cwatch_event)
+
         if len(exceptions) > 0:
             return api_response(500,exceptions)
         event['status'] = "IN PROGRESS"

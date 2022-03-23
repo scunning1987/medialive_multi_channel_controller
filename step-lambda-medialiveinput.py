@@ -425,12 +425,16 @@ def lambda_handler(event, context):
 
     else: # we're here to delete
 
+        if event['detail']['delete_tasks']['medialive_channels'] == 0:
+            event['status'] = "Channels need deleting before inputs. Waiting for Channels to be deleted"
+            return event
+
         medialive_channels = json_item['MediaLive']
         delete_exceptions = []
 
         for channel in list(medialive_channels.keys()):
 
-            input_attachments = json_item['MediaLive'][channel]
+            input_attachments = json_item['MediaLive'][channel]['Input_Attachments']
 
             for input_attachment in input_attachments:
                 input_id = input_attachment['Id']
@@ -439,5 +443,6 @@ def lambda_handler(event, context):
                 deleteEMLInput(input_id)
 
         event['status'] = "Completed deletion of MediaLive Inputs"
+        event['detail']['delete_tasks']['medialive_inputs'] = 1
         event['eml_input_delete_exceptions'] = delete_exceptions
         return event
