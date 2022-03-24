@@ -287,6 +287,16 @@ Resources:
       - MediaLiveScheduleCleanup
       - DailyScheduleCleanup
 
+  LambdaInvokedByEventBridgeJPG:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt JpgEventOverride.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MediaLiveChannelStateChange.Arn
+    DependsOn:
+      - MediaLiveChannelStateChange
+
   StepFunctionStartExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -1624,6 +1634,7 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       Description: Event Bridge to update status jpg image based on MediaLive channel status
+      RoleArn: !GetAtt LambdaRole.Arn
       EventPattern: {
         "source": [
             "aws.medialive",
@@ -1642,7 +1653,6 @@ Resources:
       }
       Targets:
         - Arn: !GetAtt JpgEventOverride.Arn
-          RoleArn: !GetAtt MediaLiveAccessRole.Arn
           Id: MediaLiveChannelStateChange
 
 #################################
