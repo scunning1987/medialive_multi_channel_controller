@@ -24,3 +24,6 @@ https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controlle
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive_channel_template_hdavc_smux.json
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/medialive_channel_template_sdavc_smux.json
 https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/ui_group_create_sample_payload.json
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/starting.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/stopping.jpg
+https://raw.githubusercontent.com/scunning1987/medialive_multi_channel_controller/main/stopped.jpg
