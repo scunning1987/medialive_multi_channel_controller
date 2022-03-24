@@ -305,16 +305,14 @@ def lambda_handler(event, context):
                         "InputAttachmentName":medialive_channel['Input_Attachments'][ia]['Name'].split("_")[-1],
                         "InputId":medialive_channel['Input_Attachments'][ia]['Id'],
                         "InputSettings":{
-                            "SourceEndBehavior":""
+                            "SourceEndBehavior":"CONTINUE"
                         }
 
                     }
 
 
-                    if "continue" in medialive_channel['Input_Attachments'][ia]['Name'].lower():
+                    if "loop" in medialive_channel['Input_Attachments'][ia]['Name'].lower():
                         input_properties['InputSettings']['SourceEndBehavior'] = "LOOP"
-                    else:
-                        input_properties['InputSettings']['SourceEndBehavior'] = "CONTINUE"
 
                     if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
                         input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}

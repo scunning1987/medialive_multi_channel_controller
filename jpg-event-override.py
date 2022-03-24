@@ -27,21 +27,21 @@ def lambda_handler(event, context):
     LOGGER.info("Event info : %s " % (event))
 
     region = event['region']
-    
+
     #eml client
     client = boto3.client('medialive', region_name=region)
     # boto3 S3 initialization
     s3_client = boto3.client("s3")
 
-    
+
     event_state = event['detail']['state']
     slate_bucket = os.environ['SLATE_BUCKET']
     slate_key_starting = os.environ['SLATE_KEY_STARTING']
     slate_key_stopping = os.environ['SLATE_KEY_STOPPING']
     slate_key_stopped = os.environ['SLATE_KEY_STOPPED']
-    
+
     s3_destination = ""
-    
+
     ## FUNCTION BLOCK START
 
     def errorOut():
@@ -49,12 +49,12 @@ def lambda_handler(event, context):
         raise Exception("Unable to complete function : %s" % (event))
         ### NEED TO raise exception here!
         return event
-    
+
     def describe_channel(channelid):
         LOGGER.info("Getting channel information from channel : %s" % (channelid))
         try:
             response = client.describe_channel(
-            ChannelId=channelid
+                ChannelId=channelid
             )
             #print(json.dumps(response))
         except Exception as e:
@@ -63,7 +63,7 @@ def lambda_handler(event, context):
             return msg
 
         return response['Destinations']
-    
+
     ## FUNCTION BLOCK END
 
     exceptions = []
@@ -77,8 +77,8 @@ def lambda_handler(event, context):
         LOGGER.error(msg)
         exceptions.append(msg)
         errorOut()
-    
-    
+
+
     for destination in medialive_destinations:
         if len(destination['Settings']) > 0: ## probably S3 output
             if "s3" in destination['Settings'][0]['Url']:
@@ -88,11 +88,13 @@ def lambda_handler(event, context):
 
     if event_state == "STOPPED":
         slate_key = slate_key_stopped
+    elif event_state == "IDLE":
+        slate_key = slate_key_stopped
     elif event_state == "STOPPING":
         slate_key = slate_key_stopping
     else: # STARTING
         slate_key = slate_key_starting
-        
+
     LOGGER.info("Event state is : %s , going to use slate jpg %s " % (event_state,slate_key))
 
     if "s3ssl" in s3_destination:
@@ -104,7 +106,7 @@ def lambda_handler(event, context):
 
     # Copy Source Object
     copy_source_object = {'Bucket': slate_bucket, 'Key': slate_key}
-    
+
     try:
         # S3 copy object operation
         response = s3_client.copy_object(CopySource=copy_source_object, Bucket=bucket_name, Key=new_key_name)
