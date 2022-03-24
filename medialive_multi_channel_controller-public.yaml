@@ -726,6 +726,33 @@ Resources:
       - FileCopier
       - FileMover
 
+  JpgEventOverride:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Function to update MediaLive channel jpg based on channel state change
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 580
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.jpg-event-override
+      Environment:
+        Variables:
+          SLATE_BUCKET: !Ref S3Bucket
+          SLATE_KEY_STARTING: !GetAtt FileMover.starting
+          SLATE_KEY_STOPPING: !GetAtt FileMover.stopping
+          SLATE_KEY_STOPPED: !GetAtt FileMover.stopped
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
   FileCopier:
     Type: AWS::Lambda::Function
     Properties:
@@ -1593,6 +1620,31 @@ Resources:
           RoleArn: !GetAtt StepFunctionStartExecutionRole.Arn
           Id: VideoPipelineAutomationStepFunctionsInitiate
 
+  MediaLiveChannelStateChange:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event Bridge to update status jpg image based on MediaLive channel status
+      EventPattern: {
+        "source": [
+            "aws.medialive",
+            "lambda.amazonaws.com"
+        ],
+        "detail-type": [
+            "MediaLive Channel State Change"
+        ],
+        "detail": {
+          "state": [
+              "STARTING",
+              "STOPPING",
+              "STOPPED"
+          ]
+        }
+      }
+
+      Targets:
+        - Arn: !GetAtt JpgEventOverride.Arn
+          RoleArn: !GetAtt MediaLiveAccessRole.Arn
+          Id: MediaLiveChannelStateChange
 
 #################################
 # Outputs

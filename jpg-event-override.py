@@ -17,12 +17,15 @@ DEALINGS IN THE SOFTWARE.
 '''
 import json
 import boto3
+import logging
 import os
-import time
+
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
-    print("INFO: Event info - ",event)
-    
+    LOGGER.info("Event info : %s " % (event))
+
     region = event['region']
     
     #eml client
@@ -40,49 +43,64 @@ def lambda_handler(event, context):
     s3_destination = ""
     
     ## FUNCTION BLOCK START
+
+    def errorOut():
+        event['status'] = exceptions
+        raise Exception("Unable to complete function : %s" % (event))
+        ### NEED TO raise exception here!
+        return event
     
     def describe_channel(channelid):
+        LOGGER.info("Getting channel information from channel : %s" % (channelid))
         try:
             response = client.describe_channel(
             ChannelId=channelid
             )
             #print(json.dumps(response))
         except Exception as e:
-            print(e)
+            msg = "Unable to get channel info, got exception: %s" % (e)
+            exceptions.append(msg)
+            return msg
+
         return response['Destinations']
     
     ## FUNCTION BLOCK END
-    
+
+    exceptions = []
+    exceptions.clear()
+
     try:
         channelid = event['detail']['channel_arn'].split(":")[-1]
         medialive_destinations = describe_channel(channelid)
-    except:
-        return {
-            'statusCode': 200,
-            'body': 'Error Getting MediaLive Channel information for channel id ' + channelid
-        }
+    except Exception as e:
+        msg = "Unable to parse channel arn for channel id, got exception : %s " % (e)
+        LOGGER.error(msg)
+        exceptions.append(msg)
+        errorOut()
     
     
     for destination in medialive_destinations:
         if len(destination['Settings']) > 0: ## probably S3 output
             if "s3" in destination['Settings'][0]['Url']:
+                LOGGER.info("Found S3 Output in MediaLive Channel destination: %s")
                 s3_destination = destination['Settings'][0]['Url']
+                LOGGER.info("S3 URL : %s " % (s3_destination))
 
-    slate_key = ""
     if event_state == "STOPPED":
         slate_key = slate_key_stopped
     elif event_state == "STOPPING":
         slate_key = slate_key_stopping
-        #time.sleep(5)
     else: # STARTING
         slate_key = slate_key_starting
         
-        
-    #return os.path.dirname(s3_destination)
-    bucket_name = s3_destination.replace("s3://","").rsplit("/")[0]
-    new_key_name = s3_destination.replace("s3://","").replace(bucket_name+"/","") + ".jpg"
+    LOGGER.info("Event state is : %s , going to use slate jpg %s " % (event_state,slate_key))
 
-    print("INFO : Channel ID %s in %s State. Copying default slate %s to channel output %s" % (channelid,event_state,slate_key,new_key_name))
+    if "s3ssl" in s3_destination:
+        bucket_name = s3_destination.replace("s3ssl://","").rsplit("/")[0]
+        new_key_name = s3_destination.replace("s3ssl://","").replace(bucket_name+"/","") + ".jpg"
+    else:
+        bucket_name = s3_destination.replace("s3://","").rsplit("/")[0]
+        new_key_name = s3_destination.replace("s3://","").replace(bucket_name+"/","") + ".jpg"
 
     # Copy Source Object
     copy_source_object = {'Bucket': slate_bucket, 'Key': slate_key}
@@ -90,13 +108,10 @@ def lambda_handler(event, context):
     try:
         # S3 copy object operation
         response = s3_client.copy_object(CopySource=copy_source_object, Bucket=bucket_name, Key=new_key_name)
-    except:
-        return {
-            'statusCode': 200,
-            'body': 'Error copying slate jpg to MediaLive configured S3 destination, channel ' + channelid
-        }
-    
-    return {
-            'statusCode': 200,
-            'body': str(response)
-        }
+    except Exception as e:
+        msg = "Unable to replace key in destination, got exception : %s " % (e)
+        exceptions.append
+        LOGGER.error(msg)
+        errorOut()
+
+    return "SUCCESS"
