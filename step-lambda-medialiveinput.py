@@ -6,6 +6,7 @@ import datetime
 import re
 import uuid
 import base64
+import time
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
@@ -263,10 +264,10 @@ def lambda_handler(event, context):
                 input_name_prefix = "%s_%02d" % (deployment_name,channel)
 
                 eml_input_list = [
-                    {"input_name":"%s_hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
-                    {"input_name":"%s_mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
-                    {"input_name":"%s_mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
-                    #{"input_name":"%s_emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
+                    {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
+                    {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
+                    {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
+                    #{"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
                 ]
 
                 input_attachments = []
@@ -430,6 +431,9 @@ def lambda_handler(event, context):
         if event['detail']['delete_tasks']['medialive_channels'] == 0:
             event['status'] = "Channels need deleting before inputs. Waiting for Channels to be deleted"
             return event
+
+
+        time.sleep(10)
 
         medialive_channels = json_item['MediaLive']
         delete_exceptions = []
