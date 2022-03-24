@@ -205,6 +205,11 @@ Resources:
               - '*'
           - Effect: Allow
             Action:
+              - mediapackage:*
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
               - ec2:describeSubnets
               - ec2:describeNetworkInterfaces
               - ec2:createNetworkInterface
