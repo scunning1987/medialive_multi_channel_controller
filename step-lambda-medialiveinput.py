@@ -266,7 +266,7 @@ def lambda_handler(event, context):
                     {"input_name":"%s_hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
                     {"input_name":"%s_mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
                     {"input_name":"%s_mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
-                    #{"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
+                    #{"input_name":"%s_emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
                 ]
 
                 input_attachments = []
