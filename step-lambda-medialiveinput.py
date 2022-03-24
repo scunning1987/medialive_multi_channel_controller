@@ -263,9 +263,9 @@ def lambda_handler(event, context):
                 input_name_prefix = "%s_%02d" % (deployment_name,channel)
 
                 eml_input_list = [
-                    {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
-                    {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
-                    {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
+                    {"input_name":"%s_hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
+                    {"input_name":"%s_mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
+                    {"input_name":"%s_mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
                     #{"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
                 ]
 

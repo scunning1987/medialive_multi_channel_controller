@@ -302,7 +302,7 @@ def lambda_handler(event, context):
                 for ia in range(0,len(medialive_channel['Input_Attachments'])):
 
                     input_properties = {
-                        "InputAttachmentName":medialive_channel['Input_Attachments'][ia]['Name'],
+                        "InputAttachmentName":medialive_channel['Input_Attachments'][ia]['Name'].split("_")[-1],
                         "InputId":medialive_channel['Input_Attachments'][ia]['Id'],
                         "InputSettings":{
                             "SourceEndBehavior":""

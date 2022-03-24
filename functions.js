@@ -8,7 +8,7 @@
   page_url_to_array = window.location.href.split("/")
   api_gw_proxy_base = page_url_to_array.slice(0,5).join("/")
 */
-supervisor_pass = "star"
+supervisor_pass = "dish"
 
 function tableCreate(total_channels){
 
@@ -441,13 +441,8 @@ function inputPreview(bumper_number){
 function pageLoadFunction(){
 
   getConfig()
-  console.log("channel map : " + JSON.stringify(live_event_map))
-  //console.log("channel start slate: "+ channel_start_slate)
+  console.log("channel map : " + JSON.stringify(channel_groups))
   console.log("vod bucket: " + bucket)
-  console.log("dashboard name: " + deployment_name)
-  // var s3_slate_url = new URL(channel_start_slate.replace("s3://","https://")) -- deprecated
-  //window.slate_bucket = s3_slate_url.hostname -- deprecated
-  //window.startup_slate_key = s3_slate_url.pathname.replace(/^\/+/, '') -- deprecated
 
   // write deployment title
   var deployment_name_pretty = deployment_name.toUpperCase().replace("_"," ")
@@ -595,12 +590,10 @@ function getConfig(){
   if (request.status === 200) {
     const jdata = JSON.parse(request.responseText);
     console.log(jdata)
-    window.live_event_map = jdata.channel_map
-    window.deployment_name = jdata.dashboard_title
+    window.channel_groups = jdata.channel_groups
     window.bucket = jdata.vod_bucket
     window.bumper_bucket_region = jdata.bumper_bucket_region
     window.apiendpointurl = jdata.control_api_endpoint_url
-    window.apiendpointhost = jdata.control_api_endpoint_host_header
     window.bumper_groups = jdata.bumper_groups
     json_data = request.responseText
      } else {
@@ -617,47 +610,6 @@ return json_data
 } // end
 
 /// get Config END
-///
-/// presign Generator START
-function presignGenerator(s3_promo_bucket,s3_promo_key){
-    var presign_url;
-    console.log("s3 presign generator api call: initializing")
-
-    var param1 = "awsaccount=master";
-    var param2 = "&functiontorun=presignGenerator"
-    var param3 = "&channelid=0:x"; // this needs to be full list of channel id's and regions
-    var param4 = "&maxresults=200";
-    var param5 = "&bucket="+s3_promo_bucket;
-    var param6 = "&input="+s3_promo_key;
-    var param7 = "&follow=";
-    var url = apiendpointurl+"?"+param1+param2+param3+param4+param5+param6+param7
-
-    var request = new XMLHttpRequest();
-    request.open('GET', url, false);
-
-  request.onload = function() {
-
-  if (request.status === 200) {
-    var jdata = JSON.parse(request.responseText);
-
-    console.log(jdata)
-    presign_url = jdata.url
-
-     } else {
-    // Reached the server, but it returned an error
-  }
-}
-
-request.onerror = function() {
-  console.error('An error occurred fetching the JSON from ' + url);
-  alert("Could not generate Presign S3 URL")
-};
-
-request.send();
-return presign_url
-} // end
-
-/// presign Generator END
 ///
 /// channel state START
 function channelState() {
