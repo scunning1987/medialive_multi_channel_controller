@@ -243,8 +243,10 @@ def lambda_handler(event, context):
         ## Deletinng deployment info from channel map
         LOGGER.info("Deleting group %s from channel map" % (deployment_name))
 
-        channel_map_json['channel_groups'][deployment_name].pop()
+        channel_map_json['channel_groups'].pop(deployment_name)
 
         update_channel_map(bucket,key,channel_map_json)
+
+        event['status'] = "Removed channel group info from channel map json"
 
         return event
