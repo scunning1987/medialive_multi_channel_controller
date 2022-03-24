@@ -74,6 +74,11 @@ td{
   border-top:3px solid #cccccc;
   border-bottom:3px solid #cccccc;
 }
+#channel_group_dropdown {
+  display:block;
+  width:1500px;
+  margin:auto;
+  }
 #controls_body{
   position:relative;
   display:block;
@@ -158,6 +163,13 @@ td{
 margin-top:20px;
 margin-left: 20px;
 }
+.ch-jpg-view{
+  margin-left:220px;
+  margin-top:10px
+}
+#channel_jpg_view{
+  width:100%
+}
 
 /* Style the buttons inside the tab */
 .tab button {
@@ -198,6 +210,8 @@ margin-left: 20px;
   overflow-y: scroll;
 }
 .expandmultiviewer{
+  display:block;
+  min-height: 380px;
   max-height:800px;
   overflow-y: scroll;
 }

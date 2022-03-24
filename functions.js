@@ -12,11 +12,14 @@ supervisor_pass = "dish"
 
 function tableCreate(total_channels){
 
+    document.getElementById("multiviewer").innerHTML = ""
+
     page_url_to_array = window.location.href.split("/")
     api_gw_proxy_base = page_url_to_array.slice(0,5).join("/")
 
     var body = document.body,
         tbl  = document.createElement('table'),
+
     columns = 8 / thumbnail_size;
     thumb_height = 90 * thumbnail_size;
     thumb_width = 160 * thumbnail_size;
@@ -29,11 +32,10 @@ function tableCreate(total_channels){
         for(var j = 1; j < total_channels + 1; j++){
             if( Math.ceil( j / columns ) == i ){
                 var td = tr.insertCell();
-                //td.appendChild(document.createTextNode(thumbs[j-1]));
-                proxy_thumbnail_s3uri = live_event_map[j.toString()].proxy_thumbnail_name
-                proxy_thumbnail_https = api_gw_proxy_base + "/" + proxy_thumbnail_s3uri.replace("s3://","")
-                td.innerHTML = '<img height="'+thumb_height+'" width="'+thumb_width+'" class="thumbs" id="thumb_jpg_'+j.toString()+'" src="'+proxy_thumbnail_https+'" onclick=\'thumbclick("'+j.toString()+'")\'></br>'+live_event_map[j.toString()].channel_friendly_name
-                td.id = "thumb_"+ j.toString()
+                proxy_thumbnail_https = live_event_map[j-1].jpg_url
+                console.log("jpg url : " + proxy_thumbnail_https)
+                td.innerHTML = '<img height="'+thumb_height+'" width="'+thumb_width+'" class="thumbs" id="thumb_jpg_'+(j-1).toString()+'" src="'+proxy_thumbnail_https+'" onclick=\'thumbclick("'+(j-1).toString()+'")\'></br>'+live_event_map[j-1].mux_channel_name
+                td.id = "thumb_"+ (j-1).toString()
                 //td.style.border = '1px solid black';
                 td.style.padding = '10px 10px 10px 10px';
             }
@@ -45,15 +47,27 @@ function tableCreate(total_channels){
 
 setInterval(function() {
 // function to get updated thumbs from MediaLive channels - via S3
-if ( multiviewer_status == "on" ){
+if ( multiviewer_status == "on" && groupSelector !== ""){
 for (channel in live_event_map){
   var datevar = Date.now().toString()
-  var proxy_thumbnail_s3uri = live_event_map[channel].proxy_thumbnail_name
-  var proxy_thumbnail_https = api_gw_proxy_base + "/" + proxy_thumbnail_s3uri.replace("s3://","")
-  document.getElementById('thumb_jpg_'+channel).src = proxy_thumbnail_https+'?rand='+datevar
+  var proxy_thumbnail_https = live_event_map[channel].jpg_url
+  document.getElementById('thumb_jpg_'+channel.toString()).src = proxy_thumbnail_https+'?rand='+datevar
+
   }
-}
-}, 2000);
+} else {
+
+  for (channel in live_event_map){
+    var datevar = Date.now().toString()
+    var proxy_thumbnail_https = live_event_map[channel].jpg_url
+
+    if ( pipSelector == channel ) {
+                document.getElementById('channel_jpg_view').style.display = "inline-block";
+                document.getElementById('channel_jpg_view').innerHTML = '<img height="360" class="ch-jpg-view" width=640 src='+proxy_thumbnail_https+'?rand='+datevar+'>'
+
+              }
+           }
+}}, 2000);
+
 
 function mediaLiveControl(evt, controlName) {
   var i, tabcontent, tablinks;
@@ -100,18 +114,18 @@ function chstartstopcontrol(action_type){
 
       document.getElementById(action_type).classList.add('pressedbutton');
 
-        var mediaconnect_flow_arns = {
-                  "ingress":live_event_map[pipSelector].mediaconnect_ingress_arn,
-                  "egress":live_event_map[pipSelector].mediaconnect_egress_arn
-                }
-        console.log(JSON.stringify(mediaconnect_flow_arns))
-        var mediaconnect_flow_arns_b64 = btoa(JSON.stringify(mediaconnect_flow_arns));
+//        var mediaconnect_flow_arns = {
+//                  "ingress":live_event_map[pipSelector].mediaconnect_ingress_arn,
+//                  "egress":live_event_map[pipSelector].mediaconnect_egress_arn
+//                }
+//        console.log(JSON.stringify(mediaconnect_flow_arns))
+//        var mediaconnect_flow_arns_b64 = btoa(JSON.stringify(mediaconnect_flow_arns));
 
         // API Call to start/stop channel - proxy
-        console.log("action type: "+action_type+" for channel ID : "+live_event_map[pipSelector].primary_channel_id)
-        channelStartStop(action_type,live_event_map[pipSelector].primary_channel_id+":"+live_event_map[pipSelector].channel_region,mediaconnect_flow_arns_b64)
-        console.log("action type: "+action_type+" for channel ID : "+live_event_map[pipSelector].proxy_gen_channel)
-        channelStartStop(action_type,live_event_map[pipSelector].proxy_gen_channel+":"+live_event_map[pipSelector].channel_region,"")
+        console.log("action type: "+action_type+" for channel ID : "+live_event_map[pipSelector].mux_channel_id)
+        channelStartStop(action_type,live_event_map[pipSelector].mux_channel_id+":"+channel_groups[groupSelector].region,"mediaconnect_flow_arns_b64")
+        console.log("action type: "+action_type+" for channel ID : "+live_event_map[pipSelector].ott_channel_id)
+        channelStartStop(action_type,live_event_map[pipSelector].ott_channel_id+":"+channel_groups[groupSelector].region,"")
 
 
       // do EMX START STOP HERE
@@ -129,8 +143,8 @@ function chliveswitch() {
   } else {
   document.getElementById('live').classList.add('pressedbutton');
   input = document.getElementById("live_source_dropdown_select").value
-  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector].primary_channel_id)
-  channelid = live_event_map[pipSelector].primary_channel_id + ":" + live_event_map[pipSelector].channel_region
+  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector].mux_channel_id)
+  channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region
   emlSwitchAction(input, channelid, "", "immediateSwitchLive", "", 200, "master", "immediateswitch")
   }
 
@@ -147,8 +161,8 @@ function chvodswitch(){
   } else {
   document.getElementById('vod').classList.add('pressedbutton');
   input = document.getElementById("vod_source_dropdown_select").value
-  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector].primary_channel_id)
-  channelid = live_event_map[pipSelector].primary_channel_id + ":" + live_event_map[pipSelector].channel_region
+  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector].mux_channel_id)
+  channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region
   emlSwitchAction(input, channelid, bucket, "immediateSwitch", "", 200, "master", "immediateswitch")
   }
 
@@ -163,7 +177,7 @@ function chbumperins(bumper_number){
     console.log("Operator has not selected a channel thumbnail. Select a thumbnail first before an action can be performed")
     alert("Please select a channel thumbnail first!")
   } else {
-    console.log("Selected Channel ID : "+live_event_map[pipSelector].primary_channel_id)
+    console.log("Selected Channel ID : "+live_event_map[pipSelector].mux_channel_id)
 
     var selected_bumper_group = document.getElementById("bumper_groups_dropdown_select").value
     var bumpercount = Object.keys(bumper_groups[selected_bumper_group]["bumpers"]).length
@@ -182,7 +196,7 @@ function chbumperins(bumper_number){
     console.log("Bumper bucket : " + s3_bumper_bucket)
     console.log("Bumper key : " + s3_bumper_key)
 
-    channelid = live_event_map[pipSelector].primary_channel_id + ":" + live_event_map[pipSelector].channel_region
+    channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region
     console.log("Submitting API Call to prepare promo now")
     emlSwitchAction(s3_bumper_key, channelid, s3_bumper_bucket, "immediateContinue", "", 200, "master", "")
 
@@ -204,7 +218,7 @@ function chbumperprep(bumper_number){
     console.log("Operator has not selected a channel thumbnail. Select a thumbnail first before an action can be performed")
     alert("Please select a channel thumbnail first!")
   } else {
-    console.log("Selected Channel ID : "+live_event_map[pipSelector].primary_channel_id)
+    console.log("Selected Channel ID : "+live_event_map[pipSelector].mux_channel_id)
     var selected_bumper_group = document.getElementById("bumper_groups_dropdown_select").value
     var bumpercount = Object.keys(bumper_groups[selected_bumper_group]["bumpers"]).length
     console.log("Found " + bumpercount + " bumpers in selected bumper group")
@@ -225,7 +239,7 @@ function chbumperprep(bumper_number){
     console.log("Bumper bucket : " + s3_bumper_bucket)
     console.log("Bumper key : " + s3_bumper_key)
 
-    channelid = live_event_map[pipSelector].primary_channel_id + ":" + live_event_map[pipSelector].channel_region
+    channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region
     console.log("Submitting API Call to prepare bumper now")
     emlSwitchAction(s3_bumper_key, channelid, s3_bumper_bucket, "inputPrepare", "", 200, "master", "")
     }
@@ -245,80 +259,27 @@ var fadeAway = function(buttonid) {
  }, 4000);
 }
 
-function bumperDropdownPopulate(){
+function groupPopulator(value){
+    groupSelector = value;
+    pipSelector = ""
+    document.getElementById('channel_jpg_view').style.display = "none";
 
-  let dropdown = document.getElementById('bumper_groups_dropdown_select');
-  dropdown.length = 0;
+    console.log("Selected group is " + groupSelector)
 
-  let defaultOption = document.createElement('option');
-  defaultOption.text = 'Select A League to Load Relevant Bumpers';
-  defaultOption.value = ""
+    window.live_event_map = channel_groups[groupSelector]['channels']
 
-  dropdown.add(defaultOption);
-  dropdown.selectedIndex = 0;
+    var total_channels = live_event_map.length;
+    console.log("There are " + total_channels.toString() + " channels in group: " + groupSelector)
+    window.thumbnail_size = 1
+    if ( parseInt(total_channels) < 9 ) {
+      window.thumbnail_size = 2
+    } else {
+      window.thumbnail_size = 1
+    }
 
-  for (var bumper_group in bumper_groups){
-    option = document.createElement('option');
-    option.text = bumper_group;
-    option.value = bumper_group;
-    dropdown.add(option)
-  }
-
-}
-
-function bumperPopulator(value){
-
-  var selected_bumper_group = value
-
-  if ( value == "" ) {
-    document.getElementById("bumperprepare").innerHTML = ""
-    document.getElementById("bumperinsert").innerHTML = ""
-    if (pipSelector == ""){
-        console.log("No Channel selected, so clearing channel information box and printing Bumper links")
-        document.getElementById("channel_info").innerHTML = ""
-        document.getElementById("channel_info").innerHTML += '<h3> Bumper Videos </h3>'
-          } else {
-          document.getElementById("channel_info").innerHTML = ""
-          document.getElementById("channel_info").innerHTML = '<p> Channel Name : '+live_event_map[pipSelector].channel_friendly_name+' </p>'
-          document.getElementById("channel_info").innerHTML += '<p> Channel ID : '+live_event_map[pipSelector].primary_channel_id+' </p>'
-          document.getElementById("channel_info").innerHTML += '<p> AWS Region : '+live_event_map[pipSelector].channel_region+' </p>'
-          document.getElementById("channel_info").innerHTML += '<h3> Bumper Videos </h3>'
-      }
-  }  else {
-
-      console.log("Populating bumper buttons with correct object url's for group " + selected_bumper_group)
-
-      var bumpercount = Object.keys(bumper_groups[selected_bumper_group]["bumpers"]).length
-      console.log("There are " + bumpercount + " bumpers for this selected group")
-      document.getElementById("bumperprepare").innerHTML = ""
-      document.getElementById("bumperinsert").innerHTML = ""
-      // create buttons
-      // input prepare / input switch
-      for (var i = 1; i <= bumpercount; i++) {
-        document.getElementById("bumperprepare").innerHTML += '<button class="bumper_buttons bumper bumper_prepare" id="prepare'+i+'" onclick="chbumperprep('+i+')">Prepare '+i+'</button>'
-        document.getElementById("bumperinsert").innerHTML += '<button class="bumper_buttons bumper bumper_insert" id="insert'+i+'" onclick="chbumperins('+i+')">Insert '+i+'</button>'
-      }
-      if (pipSelector == ""){
-        console.log("No Channel selected, so clearing channel information box and printing Bumper links")
-        document.getElementById("channel_info").innerHTML = ""
-        document.getElementById("channel_info").innerHTML += '<h3> Bumper Videos </h3>'
-      } else {
-      document.getElementById("channel_info").innerHTML = ""
-      document.getElementById("channel_info").innerHTML = '<p> Channel Name : '+live_event_map[pipSelector].channel_friendly_name+' </p>'
-      document.getElementById("channel_info").innerHTML += '<p> Channel ID : '+live_event_map[pipSelector].primary_channel_id+' </p>'
-      document.getElementById("channel_info").innerHTML += '<p> AWS Region : '+live_event_map[pipSelector].channel_region+' </p>'
-      document.getElementById("channel_info").innerHTML += '<h3> Bumper Videos </h3>'
-      }
-
-      for (var i = 1; i <= bumpercount; i++) {
-        base0i = i - 1
-        document.getElementById("channel_info").innerHTML += '<a href="#" onclick="inputPreview('+base0i+')" id="bumper'+i+'link">Bumper '+i+' : '+bumper_groups[selected_bumper_group]["bumpers"][base0i]["description"]+'</a></br>'
-      }
-  }
+    tableCreate(total_channels)
 
 }
-
-var sldpPlayers = [];
 
 function thumbclick(channel_number) {
   // set Pip Selector value so it can be used by other functions
@@ -326,6 +287,9 @@ function thumbclick(channel_number) {
 
   // display multiviewer toggle button
   document.getElementById('togglemultiviewer').style.display = "inline-block"
+
+
+
 
   console.log("Channel " + pipSelector + " has been selected from the multiviewer")
 
@@ -346,79 +310,17 @@ function thumbclick(channel_number) {
 
   // Print channel information to channel info box
   // id to populate = channel_info
-  document.getElementById("channel_info").innerHTML = '<p> Channel Name : '+live_event_map[pipSelector].channel_friendly_name+' </p>'
-  document.getElementById("channel_info").innerHTML += '<p> Channel ID : '+live_event_map[pipSelector].primary_channel_id+' </p>'
-  document.getElementById("channel_info").innerHTML += '<p> AWS Region : '+live_event_map[pipSelector].channel_region+' </p>'
+  document.getElementById("channel_info").innerHTML = '<p> Channel Name : '+live_event_map[pipSelector].mux_channel_name+' </p>'
+  document.getElementById("channel_info").innerHTML += '<p> Channel ID : '+live_event_map[pipSelector].mux_channel_id+' </p>'
+  document.getElementById("channel_info").innerHTML += '<p> AWS Region : '+channel_groups[groupSelector].region+' </p>'
+  document.getElementById("channel_info").innerHTML += '<p><a target="_blank" href="'+live_event_map[pipSelector].ott_url+'">OTT Playback</a></p>'
 
-  // Bumper Videos Links
-  document.getElementById("channel_info").innerHTML += '<h3> Bumper Videos </h3>'
-  if ( document.getElementById("bumper_groups_dropdown_select").value == "" ) {
-    console.log("No bumper group has been selected from the dropdown menu, nothing to show")
-  } else {
-  console.log("printing S3 links for Bumper videos")
-  var selected_bumper_group = document.getElementById("bumper_groups_dropdown_select").value
-  var bumpercount = Object.keys(bumper_groups[selected_bumper_group]["bumpers"]).length
-  for (var i = 1; i <= bumpercount; i++) {
-      console.log("selected bumper group is : "+ selected_bumper_group)
-      base0i = i - 1
-      document.getElementById("channel_info").innerHTML += '<a href="#" onclick="inputPreview('+base0i+')" id="bumper'+i+'link">Bumper '+i+' : '+bumper_groups[selected_bumper_group]["bumpers"][base0i]["description"]+'</a></br>'
+  // if this channel is in a mux group, display channel and mux info
+  if ( channel_groups[groupSelector]['mux_details']['total_rate'] > 0 ) {
+    console.log("This group is a mux group. We will display mux data")
+    document.getElementById("channel_info").innerHTML += '<h4> Group Mux Data</h4>'
     }
-  }
 
-  // initialize the low latency players
-  function startPlayers () {
-        console.log("starting sdlp players, checking to see if they are loaded already....")
-
-        if ( sldpPlayers.length > 0 ) {
-          console.log("players were already loaded, sending to restart function")
-          restartPlayers();
-          doStart();
-        } else {
-          console.log("players not initialized, doing now....")
-          doStart();
-        }
-      }
-
-      function restartPlayers () {
-        var destroyCnt = 0;
-        for (var i = 0; i < sldpPlayers.length; i++) {
-          sldpPlayers[i].destroy(function () {
-            console.log("destroying current instance of player")
-            destroyCnt++;
-            if (destroyCnt == sldpPlayers.length) {
-              sldpPlayers = [];
-              doStart();
-            }
-          });
-        }
-      console.log("old instances of players have been removed.")
-      }
-
-      function doStart () {
-        console.log("initializing new sdlp players")
-        for (var i = 0; i < 2; i++) {
-          var streamurl;
-          if ( i == 0) {
-            streamurl = live_event_map[pipSelector].low_latency_url_source
-          } else {
-            streamurl = live_event_map[pipSelector].low_latency_url_medialive
-          }
-
-          var player = SLDP.init({
-            container:          'player-wrp-' + (i + 1),
-            stream_url:         streamurl,
-            buffering:          250,
-            autoplay:           true,
-            muted:              true,
-            height:             360,
-            width:              640,
-            vu_meter:           {type: 'input', mode: 'peak', container: 'vu-meter-' + (i + 1), rate: 10},
-          });
-          sldpPlayers[i] = player;
-        }
-      console.log("done initializing low latency players.")
-      }
-  startPlayers()
 }
 
 
@@ -441,30 +343,34 @@ function inputPreview(bumper_number){
 function pageLoadFunction(){
 
   getConfig()
-  console.log("channel map : " + JSON.stringify(channel_groups))
+  //console.log("channel start slate: "+ channel_start_slate)
   console.log("vod bucket: " + bucket)
+  // var s3_slate_url = new URL(channel_start_slate.replace("s3://","https://")) -- deprecated
+  //window.slate_bucket = s3_slate_url.hostname -- deprecated
+  //window.startup_slate_key = s3_slate_url.pathname.replace(/^\/+/, '') -- deprecated
 
   // write deployment title
-  var deployment_name_pretty = deployment_name.toUpperCase().replace("_"," ")
+  deployment_name_pretty = "MediaLive Multi-Channel Controller"
   document.getElementById('deployment_title').innerHTML = '<h1 style="text-align:center">'+deployment_name_pretty+'</h1>'
 
-  var total_channels = Object.keys(live_event_map).length;
-    console.log("There are " + total_channels.toString() + " channels in this dashboard")
-    window.thumbnail_size = 1
-    if ( parseInt(total_channels) < 9 ) {
-      window.thumbnail_size = 2
-    } else {
-      window.thumbnail_size = 1
-    }
+//  var total_channels = Object.keys(live_event_map).length;
+//    console.log("There are " + total_channels.toString() + " channels in this dashboard")
+//    window.thumbnail_size = 1
+//    if ( parseInt(total_channels) < 9 ) {
+//      window.thumbnail_size = 2
+//    } else {
+//      window.thumbnail_size = 1
+//    }
 
-    tableCreate(total_channels)
+//    tableCreate(total_channels)
 
   // Populate the static dropdown elements with data obtained from the channel map json
-  bumperDropdownPopulate()
+//  bumperDropdownPopulate()
 
   // set channel selector and multiviewer status
-  pipSelector = ""
-  multiviewer_status = "on"
+  window.pipSelector = ""
+  window.groupSelector = ""
+  window.multiviewer_status = "on"
 
 
 
@@ -489,19 +395,6 @@ function togglecontrols(){
         console.log("setting pip selector to 0")
         pipSelector = ""
 
-
-        // destroying sldp players
-        var destroyCnt = 0;
-        if ( sldpPlayers.length > 0 ) {
-            for (var i = 0; i < sldpPlayers.length; i++) {
-              sldpPlayers[i].destroy(function () {
-                console.log("destroying current instance of player")
-                destroyCnt++;
-              })
-              }
-        } else {
-          console.log("No SLDP player to destroy")
-        }
     } else if (document.getElementById('channel_control').style.display == "inline-block" && pipSelector != "") {
        document.getElementById('channel_control').style.display = "none"
        document.getElementById('selected_channel_info').style.display = "none"
@@ -524,6 +417,7 @@ function togglecontrols(){
 
 function togglemultiviewer() {
   console.log("toggling multiviewer on")
+  document.getElementById('channel_jpg_view').style.display = "none";
   pipSelector = ""
 
 
@@ -536,19 +430,6 @@ function togglemultiviewer() {
     document.getElementById('togglecontrols').innerHTML = "View Controls"
     document.getElementById('togglemultiviewer').style.display = "none"
     console.log("setting pip selector to 0")
-
-  // destroying sldp players
-  var destroyCnt = 0;
-  if ( sldpPlayers.length > 0 ) {
-      for (var i = 0; i < sldpPlayers.length; i++) {
-        sldpPlayers[i].destroy(function () {
-          console.log("destroying current instance of player")
-          destroyCnt++;
-        })
-        }
-  } else {
-    console.log("No SLDP player to destroy")
-  }
 
   // display multiviewer
   document.getElementById('multiviewer').style.display = "inline"
@@ -564,6 +445,12 @@ setInterval(function() {
   }
 
 }, 5000);
+
+//setInterval(function() {
+//
+//    getConfig()
+//
+//}, 10000);
 
 setInterval(function() {
 
@@ -582,6 +469,17 @@ function getConfig(){
   current_url = window.location.href
   json_endpoint = current_url.substring(0,current_url.lastIndexOf("/")) + "/channel_map.json"
 
+  // initialize dropdown options for channel group dropdown
+  var input = document.getElementById("channel_group_dropdown_sel").value;
+  let dropdown = document.getElementById('channel_group_dropdown_sel');
+  dropdown.length = 0;
+
+  let defaultOption = document.createElement('option');
+  defaultOption.text = 'Choose Channel Group';
+
+  dropdown.add(defaultOption);
+  dropdown.selectedIndex = 0;
+
   var request = new XMLHttpRequest();
   request.open('GET', json_endpoint, false);
 
@@ -594,8 +492,22 @@ function getConfig(){
     window.bucket = jdata.vod_bucket
     window.bumper_bucket_region = jdata.bumper_bucket_region
     window.apiendpointurl = jdata.control_api_endpoint_url
+    window.apiendpointhost = jdata.control_api_endpoint_host_header
     window.bumper_groups = jdata.bumper_groups
     json_data = request.responseText
+
+    let option;
+
+    groups_list = Object.keys(channel_groups)
+
+    for (let i = 0; i < groups_list.length; i++) {
+      option = document.createElement('option');
+
+      option.text = groups_list[i] //Object.keys(channel_groups)[i];
+      option.value = groups_list[i] //Object.keys(channel_groups)[i];
+      dropdown.add(option);
+    }
+
      } else {
     // Reached the server, but it returned an error
   }
@@ -611,11 +523,53 @@ return json_data
 
 /// get Config END
 ///
+/// presign Generator START
+function presignGenerator(s3_promo_bucket,s3_promo_key){
+    var presign_url;
+    console.log("s3 presign generator api call: initializing")
+
+    var param1 = "awsaccount=master";
+    var param2 = "&functiontorun=presignGenerator"
+    var param3 = "&channelid=0:x"; // this needs to be full list of channel id's and regions
+    var param4 = "&maxresults=200";
+    var param5 = "&bucket="+s3_promo_bucket;
+    var param6 = "&input="+s3_promo_key;
+    var param7 = "&follow=";
+    var url = apiendpointurl+"?"+param1+param2+param3+param4+param5+param6+param7
+
+    var request = new XMLHttpRequest();
+    request.open('GET', url, false);
+
+  request.onload = function() {
+
+  if (request.status === 200) {
+    var jdata = JSON.parse(request.responseText);
+
+    console.log(jdata)
+    presign_url = jdata.url
+
+     } else {
+    // Reached the server, but it returned an error
+  }
+}
+
+request.onerror = function() {
+  console.error('An error occurred fetching the JSON from ' + url);
+  alert("Could not generate Presign S3 URL")
+};
+
+request.send();
+return presign_url
+} // end
+
+/// presign Generator END
+///
 /// channel state START
 function channelState() {
     console.log("channel state api call: initializing")
+
     var channellist = [];
-    var channelid = live_event_map[pipSelector].primary_channel_id  + ":" + live_event_map[pipSelector].channel_region
+    var channelid = live_event_map[pipSelector.toString()].mux_channel_id  + ":" + channel_groups[groupSelector].region
 
     var param1 = "awsaccount=master";
     var param2 = "&functiontorun=describeChannelState"
@@ -699,11 +653,53 @@ function s3getObjectsAPI(bucket, apiendpointurl) {
 
 /// S3 GET OBJECT API CALL - END
 ///
+/// Channel Map Poller - START
+
+function getLiveInputs(apiendpointurl) {
+
+    var input = document.getElementById("live_source_dropdown_select").value;
+    let dropdown = document.getElementById('channel_group_dropdown_sel');
+    dropdown.length = 0;
+
+    let defaultOption = document.createElement('option');
+    defaultOption.text = 'Choose Live Source';
+
+    dropdown.add(defaultOption);
+    dropdown.selectedIndex = 0;
+
+    var request = new XMLHttpRequest();
+    request.open('GET', url, true);
+
+    request.onload = function() {
+      if (request.status === 200) {
+        const data = JSON.parse(request.responseText);
+        console.log("get live inputs api call response : " + data)
+        let option;
+        for (let i = 0; i < data.length; i++) {
+          option = document.createElement('option');
+          option.text = data[i].name;
+          option.value = data[i].name;
+          dropdown.add(option);
+        }
+       } else {
+        // Reached the server, but it returned an error
+      }
+    }
+    request.onerror = function() {
+      console.error('An error occurred fetching the JSON from ' + url);
+    };
+
+    request.send();
+}
+
+/// Channel Map Poller - END
+///
 /// EML GET ATTACHED INPUTS - START
 
 function getLiveInputs(apiendpointurl) {
     console.log("get live inputs api call: initializing")
-    var channelid = live_event_map[pipSelector].primary_channel_id + ":" + live_event_map[pipSelector].channel_region;
+    console.log("pipSelector: " + pipSelector)
+    var channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region;
     var input = document.getElementById("live_source_dropdown_select").value;
 
     var param1 = "awsaccount=master";

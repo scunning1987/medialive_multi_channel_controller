@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<title>EML CTRL</title>
+<title>MediaLive Controller</title>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
     <link href="style.css" rel="stylesheet">
@@ -12,15 +12,17 @@
 <div id="deployment_title" class="common"></div>
 
 <div id="lower_body">
+    <div id="channel_group_dropdown" class="dropdowns"><select id="channel_group_dropdown_sel" onchange="groupPopulator(this.value)" name="channelgroupsources"></select></div>
 
     <div class="expandmultiviewer" id="channels_body">
         <!--<div class="sldp_wrapper" id="sldp_player1_wrapper"></div>-->
         <div id="multiviewer"></div>
-        <div id="vu-meter-1" class='vu-meter-wrp'></div>
-        <div class="player-wrp" id="player-wrp-1"></div>
+<!--        <div id="vu-meter-1" class='vu-meter-wrp'></div>-->
+<!--        <div class="player-wrp" id="player-wrp-1"></div>-->
 
-        <div class="player-wrp" id="player-wrp-2"></div>
-        <div id="vu-meter-2" class='vu-meter-wrp'></div>
+<!--        <div class="player-wrp" id="player-wrp-2"></div>-->
+<!--        <div id="vu-meter-2" class='vu-meter-wrp'></div>-->
+        <div id="channel_jpg_view" class='ch-jpg-view'></div>
     </div>
 
 
