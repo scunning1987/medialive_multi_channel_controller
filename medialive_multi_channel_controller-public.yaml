@@ -144,6 +144,7 @@ Resources:
               - events:*
             Resource:
               - !GetAtt StepFunctionsInitiate.Arn
+              - !GetAtt MediaLiveChannelStateChange.Arn
               - !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/default
     DependsOn: S3Bucket
 
