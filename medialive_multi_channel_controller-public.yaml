@@ -1641,20 +1641,8 @@ Resources:
       Description: Event Bridge to update status jpg image based on MediaLive channel status
       RoleArn: !GetAtt LambdaRole.Arn
       EventPattern: {
-        "source": [
-            "aws.medialive",
-            "lambda.amazonaws.com"
-        ],
-        "detail-type": [
-            "MediaLive Channel State Change"
-        ],
-        "detail": {
-          "state": [
-              "STARTING",
-              "STOPPING",
-              "STOPPED"
-          ]
-        }
+        "source": ["aws.medialive"],
+        "detail-type": ["MediaLive Channel State Change"]
       }
       Targets:
         - Arn: !GetAtt JpgEventOverride.Arn
