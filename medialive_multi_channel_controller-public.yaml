@@ -501,6 +501,33 @@ Resources:
       - FileCopier
       - FileMover
 
+  StepMediaLiveMultiplex:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: SF MediaLive Multiplex create
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+      Handler: index.lambda_handler
+      Timeout: 100
+      MemorySize: 10240
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !GetAtt FileMover.step-lambda-medialivemultiplex
+      Environment:
+        Variables:
+          VideoPipelineDatabase: !Ref VideoPipelineDatabase
+          RoleArn: !Ref MediaLiveAccessRole
+      Tags:
+        - Key: StackName
+          Value: !Ref AWS::StackName
+        - Key: Version
+          Value: 2
+    DependsOn:
+      - S3Bucket
+      - LambdaRole
+      - FileCopier
+      - FileMover
+
   StepMediaLiveChannel:
     Type: AWS::Lambda::Function
     Properties:
@@ -1234,8 +1261,30 @@ Resources:
             "MediaPackage": {
               "Type": "Task",
               "Resource": "${StepMediaPackage.Arn}",
-              "Next": "MediaLiveInputs"
+              "Next": "MediaLiveMultiplex"
             },
+            "MediaLiveMultiplex": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::lambda:invoke",
+                  "OutputPath": "$.Payload",
+                  "Parameters": {
+                    "Payload.$": "$",
+                    "FunctionName": "${StepMediaLiveMultiplex.Arn}"
+                  },
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                      ],
+                      "IntervalSeconds": 2,
+                      "MaxAttempts": 6,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Next": "MediaLiveInputs"
+                },
             "MediaLiveInputs": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
