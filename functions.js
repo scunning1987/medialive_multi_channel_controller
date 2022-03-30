@@ -736,7 +736,7 @@ function management_api () {
     create_region = e.value;
     group_name = document.getElementById("newgroupname").value
     alert(document.getElementById("newgroupname").value)
-    if ( parseInt(createmuxrate) > 0 ) {
+    if ( parseInt(muxrate) > 0 ) {
       createmux = "True"
     } else {
       createmux = "False"
@@ -751,7 +751,7 @@ function management_api () {
     flow_region = e.value;
 
     group_name = document.getElementById("copygroupname").value
-    if ( parseInt(copymuxrate) > 0 ) {
+    if ( parseInt(muxrate) > 0 ) {
       createmux = "True"
     } else {
       createmux = "False"
