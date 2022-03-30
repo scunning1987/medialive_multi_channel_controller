@@ -13,7 +13,7 @@ LOGGER.setLevel(logging.INFO)
 
 unique_timestamp = str(datetime.datetime.now().strftime('%s'))
 exceptions = []
-role_arn = os.environ['RoleArn'] # MediaLive Role
+role_arn = "arn:aws:iam::301520684698:role/MediaLiveAccessRole" # MediaLive Role
 
 #json.loads(json.dumps(response, default = lambda o: f"<<non-serializable: {type(o).__qualname__}>>"))
 
@@ -254,7 +254,7 @@ def lambda_handler(event, context):
             if len(exceptions) > 0:
                 return errorOut()
             else:
-                event['status'] = "Completed creation of MediaLive Multiplex with no issues"
+                event['status'] = "Completed creation of MediaLive Multiplex and Programs with no issues"
                 return event
 
         else:
