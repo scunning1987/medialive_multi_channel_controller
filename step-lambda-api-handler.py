@@ -119,6 +119,19 @@ def lambda_handler(event, context):
 
     # Validate that the name parameter contains a value. We won't look up DynamoDB for an entry right now, this is just for query param validation
     if task != "list":
+
+        # get: name , channels, region
+        ## Extract name from query paramaters
+        try:
+            name = request_query_strings['name']
+            channels = request_query_strings['channels']
+            region = request_query_strings['region']
+        except Exception as e:
+            msg = "Unable to extract name query parameter from request: %s " % (e)
+            LOGGER.error(msg)
+            api_call_validation.append(msg)
+            return api_response(500,{"status":api_call_validation})
+
         if len(name) == 0:
             msg = "Cannot %s deployment, no name has been passed in the query string" %s (task)
             LOGGER.error(msg)

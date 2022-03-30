@@ -8,7 +8,7 @@
   page_url_to_array = window.location.href.split("/")
   api_gw_proxy_base = page_url_to_array.slice(0,5).join("/")
 */
-supervisor_pass = "dish"
+var supervisor_pass = "dish";
 
 function tableCreate(total_channels){
 
@@ -45,16 +45,85 @@ function tableCreate(total_channels){
     document.getElementById("multiviewer").appendChild(tbl);
 }
 
+function tableCreateForm(channel_list){
+  var channels = 5;
+  var columns = 7;
+//  var rows_required = channels
+  var row_head = [ "#","channel_name","input","frame_size","codec","program_name","program_number"]
+
+  var body = document.body
+
+    function generateTableHead(inputtable, row_head) {
+      let thead = inputtable.createTHead();
+      let row = thead.insertRow();
+      for (var i = 0; i < row_head.length; i++) {
+        let th = document.createElement("th");
+        let text = document.createTextNode(row_head[i]);
+        th.appendChild(text);
+        th.style.border = '1px solid black';
+        row.appendChild(th);
+      }
+    }
+
+    var channel_size_dropdown = '<select><option value="hd">HD</option><option value="sd">SD</option></select>'
+    var channel_codec_dropdown = '<select><option value="avc">AVC</option><option value="mpeg2">MPEG2</option></select>'
+    var emx_flow_dropdown = ""
+    var emx_flow_options = ""
+
+    emx_flow_options += '<option value="CREATE">CREATE</option>'
+    console.log("Flows to iterate through : " + mediaconnect_flow_list.length);
+    for( var key in mediaconnect_flow_list ) {
+        console.log("iterating through flow list : " + key)
+        emx_flow_options += "<option value=" + mediaconnect_flow_list[key]['flow_arn']  + ">" + mediaconnect_flow_list[key]['flow_name'] + "</option>"
+        }
+
+    emx_flow_dropdown = '<select>'+emx_flow_options+'</select'
+    console.log("dropdown : " + emx_flow_dropdown)
+    function generateTable(inputtable, channel_list) {
+      for (let element of channel_list) {
+        let row = inputtable.insertRow();
+        for (key in element) {
+          let cell = row.insertCell();
+          cell.style.border = '1px solid black';
+          if ( element[key] == "DROP-SIZE" ) {
+            cell.innerHTML = channel_size_dropdown;
+          } else if ( element[key] == "DROP-CODEC" ) {
+            cell.innerHTML = channel_codec_dropdown;
+          } else if ( element[key] == "DROP-INPUT" ) {
+            cell.innerHTML = emx_flow_dropdown;
+          } else {
+            let text = document.createTextNode(element[key]);
+            cell.appendChild(text);
+          }
+        }
+      }
+    }
+
+//"channel_input":"DROP-INPUT",
+//"channel_size":"DROP-SIZE",
+//"channel_codec":"DROP-CODEC",
+
+  let inputtable = document.createElement('table');
+  inputtable.id = "inputtable"
+  //inputtable.style.border = '1px solid black';
+
+  generateTableHead(inputtable, row_head);
+  generateTable(inputtable, channel_list);
+  document.getElementById("group_create_form").innerHTML = "";
+  document.getElementById("group_create_form").appendChild(inputtable);
+
+}
+
 setInterval(function() {
 // function to get updated thumbs from MediaLive channels - via S3
-if ( multiviewer_status == "on" && groupSelector !== ""){
+if ( multiviewer_status === "on" && groupSelector !== ""){
 for (channel in live_event_map){
   var datevar = Date.now().toString()
   var proxy_thumbnail_https = live_event_map[channel].jpg_url
   document.getElementById('thumb_jpg_'+channel.toString()).src = proxy_thumbnail_https+'?rand='+datevar
 
   }
-} else {
+} else if ( multiviewer_status === "off" && pipSelector !== "" ) {
 
   for (channel in live_event_map){
     var datevar = Date.now().toString()
@@ -92,8 +161,17 @@ function mediaLiveControl(evt, controlName) {
     console.log("Selected tab is " + controlName + " need to run function to get available inputs/sources ")
     // s3 api call
     s3getObjectsAPI(bucket, apiendpointurl)
-  } else if (controlName == "bumper"){
-    console.log("Selected tab is " + controlName)
+  } else if (controlName == "group_ctrl"){
+
+    document.querySelector('input[type=radio][name=create]:checked').checked = false;
+
+    document.getElementById('copy-container').style.display = "none";
+    document.getElementById('create-container').style.display = "none";
+    document.getElementById('create-container-mux').style.display = "none";
+    document.getElementById('group_create_form').innerHTML = "";
+    document.getElementById('copy-container-mux').style.display = "none";
+
+    console.log("Selected tab is " + controlName);
 
   } else if (controlName == "chstartstop") {
     document.getElementById("passwordbox").value = ""
@@ -264,6 +342,8 @@ function groupPopulator(value){
     pipSelector = ""
     document.getElementById('channel_jpg_view').style.display = "none";
 
+    document.getElementById('channel_status').innerHTML = ""
+
     console.log("Selected group is " + groupSelector)
 
     window.live_event_map = channel_groups[groupSelector]['channels']
@@ -313,7 +393,7 @@ function thumbclick(channel_number) {
   document.getElementById("channel_info").innerHTML = '<p> Channel Name : '+live_event_map[pipSelector].mux_channel_name+' </p>'
   document.getElementById("channel_info").innerHTML += '<p> Channel ID : '+live_event_map[pipSelector].mux_channel_id+' </p>'
   document.getElementById("channel_info").innerHTML += '<p> AWS Region : '+channel_groups[groupSelector].region+' </p>'
-  document.getElementById("channel_info").innerHTML += '<p><a target="_blank" href="https://hls-js.netlify.app/demo/?src='+live_event_map[pipSelector].ott_url+'">OTT Playback</a></p>'
+  document.getElementById("channel_info").innerHTML += '<p><a target="_blank" href=https://hls-js.netlify.app/demo/?src='+live_event_map[pipSelector].ott_url+'>OTT Playback</a></p>'
 
   // if this channel is in a mux group, display channel and mux info
   if ( channel_groups[groupSelector]['mux_details']['total_rate'] > 0 ) {
@@ -372,7 +452,9 @@ function pageLoadFunction(){
   window.groupSelector = ""
   window.multiviewer_status = "on"
 
-
+  console.log("pipSelector : " + pipSelector)
+  console.log("groupSelector : " + groupSelector)
+  console.log("multiviewer_status : " + multiviewer_status)
 
   // Hide Control headers until a selection is made
   document.getElementById('channel_status').style.display = "none"
@@ -454,14 +536,315 @@ setInterval(function() {
 
 setInterval(function() {
 
-    var timenow = new Date().toTimeString()
+    window.timenow = new Date().toTimeString()
     document.getElementById("clock").innerHTML = '<h4>'+timenow+'</h4>'
 
     //document.getElementById("clock").innerHTML = (hours + ":" + minutes + ":" + seconds + meridiem);
 
 },1000)
 
+function group_create_form_build(build_type){
+  console.log("Building create form")
+
+  // Clean the element up from any lingering forms
+  document.getElementById('group_create_form').innerHTML = ""
+
+  if ( build_type == "copy" ){
+  console.log("Copy group was selected")
+  } else {
+  console.log("Create group was selected")
+  // radio buttons for "mux", "mux+ott","ott"
+
+  }
+}
+
+function group_copy_form_build(){
+  console.log("Copy radio button selected");
+  document.getElementById('copy-container').style.display = "inline";
+  document.getElementById('create-container').style.display = "none";
+  document.getElementById('create-container-mux').style.display = "none";
+  document.getElementById('group_create_form').innerHTML = "";
+  document.getElementById('group_create_button').style.display = "none";
+  document.getElementById('copygroupname').value = "";
+  document.getElementById('groupcopyselect').value = null;
+  document.getElementById('group_create_form').innerHTML = "";
+  document.getElementById('group_create_button').style.display = "none";
+
+}
+
+function group_create_form_build(){
+  console.log("Create radio button selected");
+  document.getElementById('copy-container').style.display = "none";
+  document.getElementById('create-container').style.display = "inline";
+  document.getElementById('newgroupname').value = "";
+  document.getElementById('newgrouptype').value = "";
+  document.getElementById('newgroupchannels').value = "";
+  document.getElementById('group_create_form').innerHTML = "";
+  document.getElementById('group_create_button').style.display = "none";
+}
+
+function newgrouptypeselect(selectedgrouptype){
+  console.log("Group create type selected is : " + selectedgrouptype )
+
+  if ( selectedgrouptype == "mux" || selectedgrouptype == "muxott" ) {
+    document.getElementById('create-container-mux').style.display = "inline";
+
+  } else {
+  document.getElementById('create-container-mux').style.display = "none";
+  document.getElementById('createmuxname').value = ""
+  document.getElementById('createmuxrate').value = ""
+  }
+}
+
+function creategrouptblgen(groupbuildtype) {
+
+  document.getElementById('copy-container-mux').style.display = "none";
+  document.getElementById('copymuxname').value = "";
+  document.getElementById('copymuxrate').value = "";
+  document.getElementById('group_create_form').innerHTML = "";
+
+  listFlows()
+  console.log(mediaconnect_flow_list)
+
+  console.log("Group build type : " + groupbuildtype)
+//  creategrouptblgen = this should be "copy" or "create"
+  number_of_channels = document.getElementById('newgroupchannels').value
+  if ( groupbuildtype == "create" ) {
+    console.log("Group type to create: " + document.getElementById('newgrouptype').value)
+    if ( document.getElementById('newgrouptype').value.length < 1 ) {
+      alert("You need to select a Group Type first");
+      document.getElementById('newgroupchannels').value = null;
+    } else {
+      console.log("Channels to create : " + number_of_channels)
+      channel_list = []
+      for(var i = 1; i <= number_of_channels; i++){
+        const dict = {
+         "channel_number":i,
+         "channel_name":document.getElementById('newgroupname').value +'-'+ i.toString(),
+         "channel_input":"DROP-INPUT",
+         "channel_size":"DROP-SIZE",
+         "channel_codec":"DROP-CODEC",
+         "program_name":document.getElementById('newgroupname').value +'-'+ i.toString(),
+         "program_id":i
+        }
+        channel_list.push(dict)
+      }
+      console.log("channnel list : " + JSON.stringify(channel_list))
+
+    // Build json first, which will translate to table
+    // {"#":n,"Ch. Name":"INPUT", "input":"DROPDOWN","frame_size":"","codec":"","prg. name":"","prg. id":""}
+
+    // build the input table!
+      tableCreateForm(channel_list)
+
+      document.getElementById('group_create_button').style.display = "block";
+      document.getElementById('group_create_button').style.margion = "10px";
+
+    }
+  } else if ( groupbuildtype == "copy" ) {
+
+    grouptocopy = document.getElementById('groupcopyselect').value
+    console.log("Going to build a copy table based on selected group")
+
+    selected_group_details = channel_groups[grouptocopy]
+    number_of_channels = selected_group_details['channels'].length
+
+    mux_details = selected_group_details['mux_details']
+    mux_rate = mux_details['total_rate']
+
+    if ( mux_rate > 0 ) {
+      console.log("We are copying a mux, unhide mux elements");
+      document.getElementById('copy-container').style.display = "inline";
+      document.getElementById('copy-container-mux').style.display = "inline";
+    }
+
+    console.log("Number of channels: " + number_of_channels)
+
+    channel_list = []
+    for (channel in selected_group_details['channels']) {
+        i = parseInt(channel) + 1
+        const dict = {
+             "channel_number":i,
+             "channel_name":document.getElementById('copygroupname').value +'-'+ i.toString(),
+             "channel_input":"DROP-INPUT",
+             "channel_size":selected_group_details['channels'][channel]['frame_size'],
+             "channel_codec":selected_group_details['channels'][channel]['codec'],
+             "program_name":document.getElementById('copygroupname').value +'-'+ i.toString(),
+             "program_id":i
+            }
+            channel_list.push(dict)
+          }
+          console.log("channnel list : " + JSON.stringify(channel_list))
+
+    // build the input table!
+      tableCreateForm(channel_list)
+
+      document.getElementById('group_create_button').style.display = "block";
+      document.getElementById('group_create_button').style.margion = "10px";
+
+
+    }
+
+
+
+
+  }
+
+function management_api () {
+  function tableToJson(table) {
+  var data = []; // first row needs to be headers
+  var headers = [];
+  for (var i=0; i<table.rows[0].cells.length; i++) {
+   headers[i] = table.rows[0].cells[i].innerHTML.toLowerCase().replace(/ /gi,'');
+  }
+  // go through cells
+  for (var i=1; i<table.rows.length; i++) {
+    var tableRow = table.rows[i]; var rowData = {};
+    for (var j=0; j<tableRow.cells.length; j++) {
+      if ( tableRow.cells[j].innerHTML.includes('select') ) {
+        var e = tableRow.cells[j].getElementsByTagName("select")[0];
+        var myValue = e.options[e.selectedIndex].value;
+        console.log("dropdown value : " + myValue)
+        rowData[ headers[j] ] = myValue;
+      } else {
+        rowData[ headers[j] ] = tableRow.cells[j].innerHTML
+     }
+    }
+    muxparams = {
+            "program_name": "",
+            "program_number": "",
+            "service_name": "",
+            "provider_name": "",
+            "min_bitrate": "",
+            "max_bitrate": "",
+            "cbr": "",
+            "priority": ""
+    }
+    rowData['mux_params'] = muxparams;
+    data.push(rowData);
+  }
+  return data;
+  }
+
+  input_create_table = document.getElementById("inputtable")
+  group_channel_create_data = tableToJson(input_create_table)
+
+  if ( document.getElementById("create_new_group").checked ) {
+    muxname = document.getElementById("createmuxname").value
+    muxrate = document.getElementById("createmuxrate").value
+    var e = document.getElementById("groupcreateregion");
+    create_region = e.value;
+    group_name = document.getElementById("newgroupname").value
+    alert(document.getElementById("newgroupname").value)
+    if ( parseInt(createmuxrate) > 0 ) {
+      createmux = "True"
+    } else {
+      createmux = "False"
+    }
+  } else {
+    muxname = document.getElementById("copymuxname").value
+    muxrate = document.getElementById("copymuxrate").value
+    var e = document.getElementById("groupcopyregion");
+    create_region = e.value
+
+    var e = document.getElementById("groupcreateregion");
+    flow_region = e.value;
+
+    group_name = document.getElementById("copygroupname").value
+    if ( parseInt(copymuxrate) > 0 ) {
+      createmux = "True"
+    } else {
+      createmux = "False"
+    }
+  }
+
+  total_create_payload = {
+    "copy": "",
+    "mux": {
+      "multiplex_name":muxname,
+      "create": createmux,
+      "bitrate": muxrate
+    },
+    "channels":group_channel_create_data
+    }
+
+  console.log(JSON.stringify(total_create_payload))
+  groupCreate(total_create_payload,create_region,group_name)
+
+}
+
 /// API Calls
+///
+/// GROUP CREATE - START
+///
+function groupCreate(create_body,create_region,group_name){
+    console.log("create body : " + JSON.stringify(create_body))
+
+    channels_to_create = create_body['channels'].length
+    grp_control_api_endpoint_url = apiendpointurl.replace("ctrl","workflow")
+
+    var param1 = "task=create";
+    var param2 = "&channels="+channels_to_create;
+    var param3 = "&region="+create_region;
+    var param4 = "&name="+group_name;
+    var url = grp_control_api_endpoint_url+"?"+param1+param2+param3+param4
+    console.log("channel start-stop-delete action api call - executing : " + url)
+
+    var putReq = new XMLHttpRequest();
+    putReq.open("PUT", url, true);
+    putReq.setRequestHeader("Accept","*/*");
+    putReq.setRequestHeader("Content-Type","application/json");
+    putReq.send(JSON.stringify(create_body));
+
+    if (putReq.status === 500 || putReq.status === 502) {
+    console.log("Something went wrong")
+    } else {
+    //alert("Channel state is changing, please be patient. This may take 60-90 seconds")
+    document.getElementById("insertconfirmmessage").display = 'block'
+    document.getElementById("insertconfirmmessage").innerHTML = '<h4 style="color:red">Command executed: '+timenow+'</h4>'
+    fadeAway("insertconfirmmessage")
+    }
+}
+/// GROUP CREATE - END
+///
+/// GROUP CONTROL - START
+
+function groupControlActions(group_action){
+
+    if (groupSelector.length < 1){
+      alert("Select a channel group first...");
+      return;
+    }
+    console.log("channel start-stop-delete action api call: initializing")
+    console.log("action to perform: " + group_action + " , on group : " + groupSelector)
+
+    selected_group_region = channel_groups[groupSelector]['region']
+
+    grp_control_api_endpoint_url = apiendpointurl.replace("ctrl","workflow")
+
+    var param1 = "task="+group_action;
+    var param2 = "&channels=";
+    var param3 = "&region="+selected_group_region;
+    var param4 = "&name="+groupSelector;
+    var url = grp_control_api_endpoint_url+"?"+param1+param2+param3+param4
+    console.log("channel start-stop-delete action api call - executing : " + url)
+
+    var putReq = new XMLHttpRequest();
+    putReq.open("PUT", url, true);
+    putReq.setRequestHeader("Accept","*/*");
+    putReq.send();
+
+    if (putReq.status === 500 || putReq.status === 502) {
+    console.log("Something went wrong")
+    } else {
+    //alert("Channel state is changing, please be patient. This may take 60-90 seconds")
+    document.getElementById("insertconfirmmessage").display = 'block'
+    document.getElementById("insertconfirmmessage").innerHTML = '<h4 style="color:red">Command executed: '+timenow+'</h4>'
+    fadeAway("insertconfirmmessage")
+    }
+}
+
+/// GROUP CONTROL - END
 ///
 /// get Config START
 function getConfig(){
@@ -472,13 +855,20 @@ function getConfig(){
   // initialize dropdown options for channel group dropdown
   var input = document.getElementById("channel_group_dropdown_sel").value;
   let dropdown = document.getElementById('channel_group_dropdown_sel');
+  let dropdown2 = document.getElementById('groupcopyselect');
   dropdown.length = 0;
+  dropdown2.length = 0;
 
   let defaultOption = document.createElement('option');
+  let defaultOption2 = document.createElement('option');
   defaultOption.text = 'Choose Channel Group';
+  defaultOption2.text = 'Choose Channel Group';
 
   dropdown.add(defaultOption);
+  dropdown2.add(defaultOption2);
   dropdown.selectedIndex = 0;
+  dropdown2.selectedIndex = 0;
+
 
   var request = new XMLHttpRequest();
   request.open('GET', json_endpoint, false);
@@ -497,15 +887,19 @@ function getConfig(){
     json_data = request.responseText
 
     let option;
+    let option2;
 
     groups_list = Object.keys(channel_groups)
 
     for (let i = 0; i < groups_list.length; i++) {
       option = document.createElement('option');
-
+      option2 = document.createElement('option');
       option.text = groups_list[i] //Object.keys(channel_groups)[i];
+      option2.text = groups_list[i]
       option.value = groups_list[i] //Object.keys(channel_groups)[i];
+      option2.value = groups_list[i]
       dropdown.add(option);
+      dropdown2.add(option2);
     }
 
      } else {
@@ -603,6 +997,50 @@ function channelState() {
 
 /// channel state END
 ///
+/// GET MEDIACONNECT FLOWS - START
+function listFlows() {
+    console.log("list mediaconnnect flows: initializing")
+
+    if(document.getElementById('create_new_group').checked) {
+      var e = document.getElementById("groupcreateregion");
+      flow_region = e.value;
+    } else {
+      var e = document.getElementById("groupcopyregion");
+      flow_region = e.value;
+    }
+    console.log("getting flows in region : " + flow_region)
+
+    var param1 = "awsaccount=master";
+    var param2 = "&functiontorun=listFlows"
+    var param3 = "&channelid=0:"+flow_region;
+    var param4 = "&maxresults=200";
+    var param5 = "&bucket=";
+    var param6 = "&input=";
+    var param7 = "&follow=";
+    var url = apiendpointurl+"?"+param1+param2+param3+param4+param5+param6+param7
+    console.log("Executing API Call to get MediaConnect flow list: " +url )
+
+    var request = new XMLHttpRequest();
+    request.open('GET', url, false);
+
+    request.onload = function() {
+      if (request.status === 200) {
+        window.mediaconnect_flow_list = JSON.parse(request.responseText);
+        console.log("MediaConnect Flow List: " + mediaconnect_flow_list)
+       } else {
+        // Reached the server, but it returned an error
+      }
+    }
+
+    request.onerror = function() {
+      console.error('An error occurred fetching the JSON from ' + url);
+    };
+
+    request.send();
+}
+
+/// GET MEDIACONNECT FLOWS - END
+///
 /// S3 GET OBJECT API CALL - START
 function s3getObjectsAPI(bucket, apiendpointurl) {
     console.log("s3 get objects api call: initializing")
@@ -655,7 +1093,7 @@ function s3getObjectsAPI(bucket, apiendpointurl) {
 ///
 /// Channel Map Poller - START
 
-function getLiveInputs(apiendpointurl) {
+function channelMapPoller(apiendpointurl) {
 
     var input = document.getElementById("live_source_dropdown_select").value;
     let dropdown = document.getElementById('channel_group_dropdown_sel');
@@ -818,3 +1256,5 @@ function channelStartStop(startstop,channelid,flows){
 
 /// EML CHANNEL START/STOP - END
 ///
+
+

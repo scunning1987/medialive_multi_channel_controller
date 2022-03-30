@@ -393,6 +393,32 @@ def lambda_handler(event, context):
 
     ### Function End : batch_update ###
 
+    ### Function Start : listFlows
+    def listFlows():
+
+        try:
+            response = emxclient.list_flows(MaxResults=100)
+        except Exception as e:
+            print("Unable to list flows, got exception : %s " % (e))
+            return {}
+
+        flow_list = []
+        for flow in response['Flows']:
+            flow_name = flow['Name']
+            flow_arn = flow['FlowArn']
+
+            flow_data = dict()
+            flow_data['flow_name'] = flow_name
+            flow_data['flow_arn'] = flow_arn
+
+            flow_list.append(flow_data)
+
+        return flow_list
+
+
+
+    ### Function End : listFlows
+
     ### Function Start : batch_udpate delete ###
     def batch_update_delete(itemstodelete):
         deletedict = dict()
@@ -1220,6 +1246,8 @@ def lambda_handler(event, context):
         return api_response(200,response)
     elif functiontorun == "html5Graphics":
         response = html5Graphics()
+    elif functiontorun == "listFlows":
+        response = listFlows()
         return api_response(200,response)
 
     else: # return error#

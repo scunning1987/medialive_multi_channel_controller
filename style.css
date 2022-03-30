@@ -83,7 +83,8 @@ td{
   position:relative;
   display:block;
   margin:auto;
-  height: 500px;
+  min-height: 500px;
+  max-height:1200px;
   width: 1500px;
 }
 
@@ -91,7 +92,8 @@ td{
   position: relative;
   float:left;
   margin-top:10px;
-  height: 320px;
+  min-height: 320px;
+  max-height:2200px;
   width: 700px;
 }
 #selected_channel_info {
@@ -199,7 +201,9 @@ margin-left: 20px;
   padding: 6px 12px;
   border: 1px solid #ccc;
   border-top: none;
-  height:260px;
+  min-height:260px;
+  max-height:1200px;
+  overflow-x: scroll
 }
 .channel_info_text {
   padding: 10px;
@@ -214,6 +218,28 @@ margin-left: 20px;
   min-height: 380px;
   max-height:800px;
   overflow-y: scroll;
+}
+
+#group_create_button {
+  margin-top:10px;
+  display:none
+}
+
+#copy-container {
+  display:none
+}
+#create-container{
+  display:none
+}
+
+#create-container-mux{
+  display:none
+}
+#copy-container {
+  display:none
+}
+#copy-container-mux{
+  display:none
 }
 
 .control_buttons {
@@ -250,6 +276,14 @@ bumper_insert {
 #stop {
   margin-left:10px;
 }
+
+#group_stop {
+  margin-left:10px;
+}
+#group_delete {
+  margin-left:10px;
+}
+
 .previewhyperlinks {
   position:absolute;
   cursor:pointer;

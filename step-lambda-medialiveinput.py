@@ -13,7 +13,7 @@ LOGGER.setLevel(logging.INFO)
 
 unique_timestamp = str(datetime.datetime.now().strftime('%s'))
 exceptions = []
-role_arn = "arn:aws:iam::301520684698:role/MediaLiveAccessRole" # MediaLive Role
+role_arn = os.environ['RoleArn'] # MediaLive Role
 
 #json.loads(json.dumps(response, default = lambda o: f"<<non-serializable: {type(o).__qualname__}>>"))
 
@@ -80,10 +80,13 @@ def lambda_handler(event, context):
         input_name = eml_input['input_name']
         input_type = eml_input['input_type']
 
+
         if input_type == "MEDIACONNECT":
 
+            flow_arns = eml_input['arn']
+
             try:
-                input_create_response = eml_client.create_input(MediaConnectFlows=flows,Type=input_type,Name=input_name,RoleArn=role_arn)
+                input_create_response = eml_client.create_input(MediaConnectFlows=[{"FlowArn":flow_arns[0]},{"FlowArn":flow_arns[1]}],Type=input_type,Name=input_name,RoleArn=role_arn)
             except Exception as e:
                 exceptions.append("Couldn't create input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
@@ -93,7 +96,7 @@ def lambda_handler(event, context):
         elif input_type == "MP4_FILE":
 
             try:
-                input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']}],RoleArn=role_arn)
+                input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']},{'Url':eml_input['url']}],RoleArn=role_arn)
             except Exception as e:
                 exceptions.append("Couldn't create input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
@@ -103,7 +106,7 @@ def lambda_handler(event, context):
         elif input_type == "URL_PULL":
 
             try:
-                input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']}],RoleArn=role_arn)
+                input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']},{'Url':eml_input['url']}],RoleArn=role_arn)
             except Exception as e:
                 exceptions.append("Couldn't create input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
@@ -132,6 +135,28 @@ def lambda_handler(event, context):
             return msg
         return response
 
+    def createFlow(flowname,az):
+        LOGGER.info("Creating flow for channel")
+        try:
+            create_flow_response = emx_client.create_flow(Name=flowname,AvailabilityZone=az,Source={'Name': flowname,'Protocol': 'zixi-push','WhitelistCidr':'0.0.0.0/0'})
+        except Exception as e:
+            msg = "Unable to create flow %s, got exception : %s" % (flowname,e)
+            LOGGER.error(msg)
+            exceptions.append(msg)
+            create_flow_response = msg
+        LOGGER.info("Done Creating MediaConnect Flow : %s " % (flowname))
+        return create_flow_response
+
+    def startFlow(flow_arn):
+        try:
+            start_flow_response = emx_client.start_flow(FlowArn=flow_arn)
+        except Exception as e:
+            msg = "Unable to start flow %s, got exception : %s" % (flow_arn,e)
+            LOGGER.error(msg)
+            exceptions.append(msg)
+            start_flow_response = msg
+        LOGGER.info("MediaConnect Flow Started : %s " % (flow_arn))
+        return start_flow_response
 
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
@@ -229,9 +254,13 @@ def lambda_handler(event, context):
     # initialize medialive boto3 client
     eml_client = boto3.client('medialive', region_name=region)
 
+    # initialize mediaconnect boto3 client
+    emx_client = boto3.client('mediaconnect', region_name=region)
+
     if task == "create":
 
         medialive_db_item = dict()
+        mediaconnect_db_item = dict()
 
         pipeline = json_item['Pipeline']
 
@@ -249,11 +278,113 @@ def lambda_handler(event, context):
         # OttSDTemplate	medialive_multi_channel_controller/main/medialive_channel_template_sd_abr.json
         # S3Bucket	dishauto12-s3bucket-1t5bgt3x7j1vx
 
-        channel_data = []
         if isinstance(channel_data,dict):
             # This includes user input data from the UI
 
-            return channel_data
+
+
+            for channel in range(0,int(channels)):
+
+                input_name_prefix = "%s_%02d" % (deployment_name,channel+1)
+
+                emx_flow_arns = []
+
+                #
+                # Create EMX Flow
+                #
+                if channel_data['channels'][channel]['input'] == "CREATE":
+                    channel += 1
+                    flow_suffixes = ["b","c"]
+                    for suffix in flow_suffixes:
+                        flowname = "%s_%s" % (input_name_prefix,suffix)
+                        az = "%s%s" % (region, suffix)
+                        emx_response = createFlow(flowname,az)
+                        if len(exceptions) > 0:
+                            return errorOut()
+
+                        #
+                        # Create Item Structure for DB entry
+                        #
+
+                        mediaconnect_db_item[str(channel)] = {
+                            "Flow_Name":emx_response['Flow']['Name'],
+                            "Flow_Arn":emx_response['Flow']['FlowArn'],
+                            "IngestIp":emx_response['Flow']['Source']['IngestIp'],
+                            "IngestPort":emx_response['Flow']['Source']['IngestPort'],
+                            "IngestProtocol":emx_response['Flow']['Source']['Transport']['Protocol']
+                        }
+
+                        # this is the Arn of the new Flow
+                        emx_flow_arn = emx_response['Flow']['FlowArn']
+
+                        #
+                        # Start Flow
+                        #
+                        #startFlow(emx_flow_arn)
+
+                        if len(exceptions) > 0:
+
+                            return errorOut()
+
+                        emx_flow_arns.append(emx_response['Flow']['FlowArn'])
+                    #
+                    # Create EML Input
+                    #
+
+
+                    eml_input_list = [
+                        {"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":emx_flow_arns},
+                        {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://af93123e0d76e324607b5414578c69b2.p05sqb.channel-assembly.mediatailor.us-west-2.amazonaws.com/v1/channel/cunsco-1/hls.m3u8"},
+                        {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
+                        {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
+                    ]
+
+
+                    input_attachments = []
+                    input_attachments.clear()
+                    for eml_input in eml_input_list:
+
+                        LOGGER.info("EML Input dictionary : %s " % (eml_input))
+                        input_create_response = createEMLInput(eml_input)
+
+                        if len(exceptions) > 0:
+
+                            return errorOut()
+
+
+                        input_attachments.append(input_create_response['Input'])
+
+                    medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
+
+
+                else:
+                    # This is an ARN for an existing flow, add it to the lists of inputs to create
+                    emx_flow_arns = channel_data['channels'][channel]['input']
+
+                    eml_input_list = [
+                        {"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":emx_flow_arns},
+                        {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://af93123e0d76e324607b5414578c69b2.p05sqb.channel-assembly.mediatailor.us-west-2.amazonaws.com/v1/channel/cunsco-1/hls.m3u8"},
+                        {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
+                        {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
+                    ]
+
+                    input_attachments = []
+                    input_attachments.clear()
+                    for eml_input in eml_input_list:
+
+                        input_create_response = createEMLInput(eml_input)
+
+                        if len(exceptions) > 0:
+
+                            return errorOut()
+
+
+                        input_attachments.append(input_create_response['Input'])
+
+                    medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
+
+            json_item['MediaConnect'] = mediaconnect_db_item
+            json_item['MediaLive'] = medialive_db_item
 
         else:
 
@@ -287,15 +418,6 @@ def lambda_handler(event, context):
 
             json_item['MediaLive'] = medialive_db_item
 
-            eml_dict_to_dynamo = dict()
-            json_to_dynamo(eml_dict_to_dynamo,json_item)
-
-            putItem(eml_dict_to_dynamo)
-            if len(exceptions) > 0:
-                return errorOut()
-            else:
-                event['status'] = "Completed creation of MediaLive inputs with no issues"
-                return event
 
             # create default inputs
             # 1. Dummy HLS Pull, 2. MP4 dynamic, 3. MP4 Loop
@@ -423,8 +545,17 @@ def lambda_handler(event, context):
         #     event['status'] = "Completed creation of MediaLive channels with no issues"
         #     return event
 
-        event['status'] = "Completed creation of MediaLive inputs with no issues"
-        return event
+
+        eml_dict_to_dynamo = dict()
+        json_to_dynamo(eml_dict_to_dynamo,json_item)
+
+        putItem(eml_dict_to_dynamo)
+        if len(exceptions) > 0:
+            return errorOut()
+        else:
+            event['status'] = "Completed creation of MediaLive inputs with no issues"
+            return event
+
 
     else: # we're here to delete
 

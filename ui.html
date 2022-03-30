@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <title>MediaLive Controller</title>
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
     <link href="style.css" rel="stylesheet">
     <link href="https://unpkg.com/video.js/dist/video-js.css" rel="stylesheet">
-    <script src='sldp-v2.18.1.min.js' type='text/javascript'></script>
 </head>
 <body onload="pageLoadFunction()" >
 
@@ -40,7 +39,7 @@
                 <button class="tablinks" onclick="mediaLiveControl(event,'chstartstop')">Start/Stop</button>
                 <button class="tablinks" onclick="mediaLiveControl(event,'livestatic')">Live/Static</button>
                 <button class="tablinks" onclick="mediaLiveControl(event,'vodslate')">VOD/Slate</button>
-                <button class="tablinks" onclick="mediaLiveControl(event,'bumper')">Bumpers</button>
+                <button class="tablinks" onclick="mediaLiveControl(event,'group_ctrl')">Group Ctrl</button>
             </div>
             <div id="chstartstop" class="tabcontent">
                 <h3>Individual Channel Start/Stop Control</h3>
@@ -52,22 +51,81 @@
             <div id="livestatic" class="tabcontent">
                 <h3>Live input scheduling control </h3>
                 <p>Immediate switch to LIVE sources attached to channel</p>
-                <div id="live_source_dropdown_label">Live Source:</p></div>
+                <div id="live_source_dropdown_label">Live Source:</div>
                 <div id="live_source_dropdown" class="dropdowns"><select id="live_source_dropdown_select" name="sources"></select></div>
                 <button class="control_buttons" id="live" onclick="chliveswitch()">Switch Now</button>
             </div>
             <div id="vodslate" class="tabcontent">
                 <h3>VOD scheduling control</h3>
                 <p>Immediate switch to VOD sources in available S3 bucket</p>
-                <div id="bucket_label">Objects :</p></div>
+                <div id="bucket_label">Objects :</div>
                 <div id="vod_source_dropdown" class="dropdowns"><select id="vod_source_dropdown_select" name="vsources"></select></div>
                 <button class="control_buttons" id="vod" onclick="chvodswitch()">Switch Now</button>
             </div>
-            <div id="bumper" class="tabcontent">
-                <h3>Bumpers Insert</h3>
-                <div id="bumper_groups_dropdown" class="dropdowns"><select id="bumper_groups_dropdown_select" onchange="bumperPopulator(this.value)" name="bumpersources"></select></div>
-                <div id="bumperprepare"></div>
-                <div id="bumperinsert"></div>
+            <div id="group_ctrl" class="tabcontent">
+                <h3>Group Control</h3>
+                <button class="control_buttons" id="group_start" onclick="groupControlActions('start')">Group Start</button>
+                <button class="control_buttons" id="group_stop" onclick="groupControlActions('stop')">Group Stop</button>
+                <button class="control_buttons" id="group_delete" onclick="groupControlActions('delete')">Group Delete</button>
+
+                <h3 style="clear:both">Group Create</h3>
+
+                <input type="radio" id="create_new_group" name="create" value="create" onclick="group_create_form_build()">
+                <label for="create_new_group">Create</label><br>
+                <input type="radio" id="copy_new_group" name="create" value="copy" onclick="group_copy_form_build()">
+                <label for="copy_new_group">Copy</label><br>
+
+                <div id="copy-container">
+                    <label for="copygroupname">New Group Name:</label><input type="input" id="copygroupname"/>
+                    <br />
+                    <label for="groupcopyselect">Group to copy:</label><select id="groupcopyselect" onchange="creategrouptblgen('copy')" name="channelgroupsources"></select>
+                    <br />
+                    <label for="groupcopyregion">Region:</label>
+                    <select id="groupcopyregion" name="channelgroupregion" onchange="creategrouptblgen('copy')">
+                        <option value="us-west-2">us-west-2</option>
+                        <option value="us-east-1">us-east-1</option>
+                        <option value="us-west-1">us-west-1</option>
+                        <option value="us-east-2">us-east-2</option>
+                    </select>
+                    <div id="copy-container-mux">
+                        <br />
+                        <label for="copymuxname">Mux Name:</label><input type="input" id="copymuxname"/>
+                        <br />
+                        <label for="copymuxrate">Mux Rate (bps):</label><input type="input" id="copymuxrate"/>
+                    </div>
+                </div>
+
+                <div id="create-container">
+                    <label for="newgroupname">New Group Name:</label><input type="input" id="newgroupname"/>
+                    <br />
+                    <label for="newgrouptype">Group Type:</label>
+                    <select id="newgrouptype" onchange="newgrouptypeselect(this.value)" name="channelgroupsources">
+                        <option value="none" selected disabled hidden>Select an Option</option>
+                        <option value="mux">Mux</option>
+                        <option value="muxott">Mux & OTT</option>
+                        <option value="ott">OTT</option>
+                    </select>
+                    <br />
+                    <label for="newgroupchannels">New Group Channels:</label><input type="number" min="1" max="15" id="newgroupchannels" onchange="creategrouptblgen('create')" />
+                    <br />
+                    <label for="groupcreateregion">Region:</label>
+                    <select id="groupcreateregion" name="channelgroupregion" onchange="creategrouptblgen('create')">
+                        <option value="us-west-2">us-west-2</option>
+                        <option value="us-east-1">us-east-1</option>
+                        <option value="us-west-1">us-west-1</option>
+                        <option value="us-east-2">us-east-2</option>
+                    </select>
+                    <div id="create-container-mux">
+                        <br />
+                        <label for="createmuxname">Mux Name:</label><input type="input" id="createmuxname"/>
+                        <br />
+                        <label for="createmuxrate">Mux Rate (bps):</label><input type="input" id="createmuxrate"/>
+                    </div>
+                </div>
+
+                <div id="group_create_form"></div>
+                <button class="control_buttons" id="group_create_button" onclick="management_api('groupcreate')">Create</button>
+                <br /><br /><br />
             </div>
         </div>
         <div id="selected_channel_info" class="common">
