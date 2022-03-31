@@ -113,6 +113,31 @@ def lambda_handler(event, context):
                 return "Couldn't create input, got exception %s " % (e)
             return input_create_response
 
+    def emlInputCreation(prefix):
+
+        name_prefix = "%s-%s" % (prefix,input_name_prefix)
+
+        eml_input_list = [
+            {"input_name":"%s-emx" % (name_prefix),"input_type":"MEDIACONNECT","arn":emx_flow_arns},
+            # {"input_name":"%s-hls-pull-input" % (name_prefix),"input_type":"URL_PULL","url":"https://af93123e0d76e324607b5414578c69b2.p05sqb.channel-assembly.mediatailor.us-west-2.amazonaws.com/v1/channel/cunsco-1/hls.m3u8"},
+            {"input_name":"%s-mp4-loop" % (name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
+            {"input_name":"%s-mp4-continue" % (name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
+        ]
+
+        for eml_input in eml_input_list:
+
+            LOGGER.info("EML Input dictionary : %s " % (eml_input))
+            input_create_response = createEMLInput(eml_input)
+
+            if len(exceptions) > 0:
+
+                return errorOut()
+
+
+            input_attachments.append(input_create_response['Input'])
+
+        return input_attachments
+
     def createEMLChannel():
         LOGGER.info("Attempting to create MediaLive Channel : %s " % (channel_name))
 
@@ -264,7 +289,6 @@ def lambda_handler(event, context):
 
         pipeline = json_item['Pipeline']
 
-
         # task = event['detail']['task']
         # channels = event['detail']['channels']
         # channel_data = event['detail']['channel_data']
@@ -331,28 +355,12 @@ def lambda_handler(event, context):
                     # Create EML Input
                     #
 
-
-                    eml_input_list = [
-                        {"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":emx_flow_arns},
-                        {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://af93123e0d76e324607b5414578c69b2.p05sqb.channel-assembly.mediatailor.us-west-2.amazonaws.com/v1/channel/cunsco-1/hls.m3u8"},
-                        {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
-                        {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
-                    ]
-
-
                     input_attachments = []
-                    input_attachments.clear()
-                    for eml_input in eml_input_list:
+                    input_attachments += emlInputCreation("ott")
+                    if event['detail']['channel_data']['mux']['create'] == "True":
 
-                        LOGGER.info("EML Input dictionary : %s " % (eml_input))
-                        input_create_response = createEMLInput(eml_input)
+                        input_attachments += emlInputCreation("mux")
 
-                        if len(exceptions) > 0:
-
-                            return errorOut()
-
-
-                        input_attachments.append(input_create_response['Input'])
 
                     medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
@@ -361,25 +369,11 @@ def lambda_handler(event, context):
                     # This is an ARN for an existing flow, add it to the lists of inputs to create
                     emx_flow_arns = channel_data['channels'][channel]['input']
 
-                    eml_input_list = [
-                        {"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":emx_flow_arns},
-                        {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://af93123e0d76e324607b5414578c69b2.p05sqb.channel-assembly.mediatailor.us-west-2.amazonaws.com/v1/channel/cunsco-1/hls.m3u8"},
-                        {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
-                        {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
-                    ]
-
                     input_attachments = []
-                    input_attachments.clear()
-                    for eml_input in eml_input_list:
+                    input_attachments += emlInputCreation("ott")
+                    if event['detail']['channel_data']['mux']['create'] == "True":
 
-                        input_create_response = createEMLInput(eml_input)
-
-                        if len(exceptions) > 0:
-
-                            return errorOut()
-
-
-                        input_attachments.append(input_create_response['Input'])
+                        input_attachments += emlInputCreation("mux")
 
                     medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
@@ -394,25 +388,13 @@ def lambda_handler(event, context):
 
                 input_name_prefix = "%s_%02d" % (deployment_name,channel)
 
-                eml_input_list = [
-                    {"input_name":"%s-hls-pull-input" % (input_name_prefix),"input_type":"URL_PULL","url":"https://nowhere.com/manifest.m3u8"},
-                    {"input_name":"%s-mp4-loop" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"},
-                    {"input_name":"%s-mp4-continue" % (input_name_prefix),"input_type":"MP4_FILE","url":"s3ssl://$urlPath$"}
-                    #{"input_name":"%s-emx" % (input_name_prefix),"input_type":"MEDIACONNECT","arn":""}
-                ]
-
                 input_attachments = []
-                input_attachments.clear()
-                for eml_input in eml_input_list:
+                input_attachments += emlInputCreation("ott")
+                if event['detail']['channel_data']['mux']['create'] == "True":
 
-                    input_create_response = createEMLInput(eml_input)
-
-                    if len(exceptions) > 0:
-
-                        return errorOut()
+                    input_attachments += emlInputCreation("mux")
 
 
-                    input_attachments.append(input_create_response['Input'])
 
                 medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 

@@ -236,54 +236,104 @@ def lambda_handler(event, context):
         ott_sd_avc = get_template_from_s3(template_bucket,os.environ['OttSDTemplate'])
 
         default_template = ott_sd_avc
+        statmux_template = mux_hd_avc
 
         if len(exceptions) > 0:
 
             return errorOut()
 
-        channel_data = []
         if isinstance(channel_data,dict):
 
             # This includes user input data from the UI
 
-            # check first to see if copy is true
-            if len(channel_data['copy']) > 0:
+            LOGGER.info("This group will be created using channel data sent from the UI")
 
-                LOGGER.info("This group will copy settings from group : %s " % (channel_data['copy']))
-                #
-                #
-                # Need a copy function here to copy from another group_name. Copy all settings but extract input settings for each channel from channel_data
-                #
-                #
+            if channel_data['mux']['create'] == "True":
 
-            else: # no copy
-
-                LOGGER.info("This group will not copy from an existing group")
-
-                if channel_data['mux']['create'] == True:
-
-                    LOGGER.info("This group will be a statmux group")
-                    #
-                    #
-                    # build in logic to create a statmux group along with each channel
-                    #
-                    #
-                    # after create, write to dynamo with published settings under MediaLive/channnel/mux/[mux channel stuff]
-                    #
-                    #
-
-                ## regardless we come here to create the ott output
-                LOGGER.info("Starting creation of OTT channels for this group")
-                LOGGER.info("Defaulting to create SD OTT channels only")
+                LOGGER.info("This group will be a statmux group, creating statmux channels now")
 
 
-                ## Clean exit of the function down here
+                for channel in range(1,int(channels)+1):
 
-        else:
+                    input_specs = dict()
+                    input_specs['Codec'] = input_codec
+                    input_specs['MaximumBitrate'] = max_bitrate
+                    input_specs['Resolution'] = max_resolution
+
+                    medialive_channel = json_item["MediaLive"][str(channel)]
+
+                    encoder_settings = statmux_template['EncoderSettings']
+                    destinations_template = statmux_template['Destinations']
+
+                    # InputAttachmentName, InputId, InputSettings
+                    channel_input_attachments = []
+                    channel_input_attachments.clear()
+
+                    for ia in range(0,len(medialive_channel['Input_Attachments'])):
+
+                        if medialive_channel['Input_Attachments'][ia]['Name'][0:3] == "mux":
+                            input_properties = {
+                                "InputAttachmentName":medialive_channel['Input_Attachments'][ia]['Name'].split("_")[-1],
+                                "InputId":medialive_channel['Input_Attachments'][ia]['Id'],
+                                "InputSettings":{
+                                    "SourceEndBehavior":"CONTINUE"
+                                }
+
+                            }
+
+                            if "loop" in medialive_channel['Input_Attachments'][ia]['Name'].lower():
+                                input_properties['InputSettings']['SourceEndBehavior'] = "LOOP"
+
+                            if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
+                                input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}
+
+                            channel_input_attachments.append(input_properties)
+
+                    return channel_input_attachments
+                    # construct medialive event outputs
+                    for destination in destinations_template:
+                        if 'MultiplexSettings' in destination: # This output is to a multiplex
+                            LOGGER.debug("This is Multiplex destination - EMP: %s" % (destination))
+
+                            #
+                            # This is where you are
+                            #
+                            multiplex_config = json_item['Multiplex']['1']
+                            multiplex_id = multiplex_config['Multiplex_Id']
+                            program_name = multiplex_config['Programs'][str(channel)]['ProgramName']
+
+                            destination['MultiplexSettings']['MultiplexId'] = multiplex_id # Path to put MediaPackage Channel ID
+                            destination['MultiplexSettings']['ProgramName'] = program_name
+
+                        else:
+                            errorOut()
+
+                    channel_name = "mux-%s_%02d" % (deployment_name,channel)
+
+                    return channel_input_attachments
+                    medialive_create_channel_response = createEMLChannel()
+
+                    if len(exceptions) > 0:
+                        errorOut()
+
+                    channel_arn = medialive_create_channel_response['Channel']['Arn']
+
+                    # Update json item
+                    json_item["MediaLive"][str(channel)]['Channel_Name_Mux'] = channel_name
+                    json_item["MediaLive"][str(channel)]['Channel_Arn_Mux'] = channel_arn
+
+
+            ## No function exit, pass on to the create_ott_group below
+
+        create_ott_group = True
+        if create_ott_group:
+
+            #
+            # No matter what we create OTT channels
+            #
 
             ## No user data sent through , just do an OTT group
-            LOGGER.info("No granular details sent with group create. Creating OTT channels only")
-            LOGGER.info("Defaulting to create SD OTT channels only")
+            LOGGER.info("Creating OTT channels for group")
 
             for channel in range(1,int(channels)+1):
 
@@ -301,23 +351,26 @@ def lambda_handler(event, context):
                 channel_input_attachments = []
                 for ia in range(0,len(medialive_channel['Input_Attachments'])):
 
-                    input_properties = {
-                        "InputAttachmentName":medialive_channel['Input_Attachments'][ia]['Name'].split("_")[-1],
-                        "InputId":medialive_channel['Input_Attachments'][ia]['Id'],
-                        "InputSettings":{
-                            "SourceEndBehavior":"CONTINUE"
+                    if medialive_channel['Input_Attachments'][ia]['Name'][0:3] == "ott":
+                        input_properties = {
+                            "InputAttachmentName":medialive_channel['Input_Attachments'][ia]['Name'].split("_")[-1],
+                            "InputId":medialive_channel['Input_Attachments'][ia]['Id'],
+                            "InputSettings":{
+                                "SourceEndBehavior":""
+                            }
+
                         }
 
-                    }
 
+                        if "continue" in medialive_channel['Input_Attachments'][ia]['Name'].lower():
+                            input_properties['InputSettings']['SourceEndBehavior'] = "LOOP"
+                        else:
+                            input_properties['InputSettings']['SourceEndBehavior'] = "CONTINUE"
 
-                    if "loop" in medialive_channel['Input_Attachments'][ia]['Name'].lower():
-                        input_properties['InputSettings']['SourceEndBehavior'] = "LOOP"
+                        if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
+                            input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}
 
-                    if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
-                        input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}
-
-                    channel_input_attachments.append(input_properties)
+                        channel_input_attachments.append(input_properties)
 
                 # construct medialive event outputs
                 for destination in destinations_template:
@@ -335,7 +388,7 @@ def lambda_handler(event, context):
                         LOGGER.debug("MediaLive Channel %s outputting JPG to %s" % (channel, jpg_full_path))
                         destination['Settings'][0]['Url'] = jpg_full_path # Path to s3 published JPG
 
-                channel_name = "%s_%02d" % (deployment_name,channel)
+                channel_name = "ott-%s_%02d" % (deployment_name,channel)
 
 
                 medialive_create_channel_response = createEMLChannel()
@@ -346,8 +399,8 @@ def lambda_handler(event, context):
                 channel_arn = medialive_create_channel_response['Channel']['Arn']
 
                 # Update json item
-                json_item["MediaLive"][str(channel)]['Channel_Name'] = channel_name
-                json_item["MediaLive"][str(channel)]['Channel_Arn'] = channel_arn
+                json_item["MediaLive"][str(channel)]['Channel_Name_OTT'] = channel_name
+                json_item["MediaLive"][str(channel)]['Channel_Arn_OTT'] = channel_arn
 
 
         eml_dict_to_dynamo = dict()

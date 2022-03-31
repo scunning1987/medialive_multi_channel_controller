@@ -38,6 +38,16 @@ def lambda_handler(event, context):
             LOGGER.error("Unable to get item information from DynamoDB, got exception:  %s " % (e))
         return response
 
+    def deleteItem():
+        try:
+            key = {'Group_Name':{'S':deployment_name}}
+            response = client.delete_item(TableName=dynamodb_table_name,Key=key)
+        except Exception as e:
+            msg = "Unable to delete item from database, got exception : %s - please do this manually. Item : %s" % (e,deployment_name)
+            LOGGER.error(msg)
+            return msg
+        return response
+
     def errorOut():
         event['status'] = exceptions
         raise Exception("Unable to complete function : %s" % (event))
@@ -246,7 +256,10 @@ def lambda_handler(event, context):
         channel_map_json['channel_groups'].pop(deployment_name)
 
         update_channel_map(bucket,key,channel_map_json)
+        deleteItem()
 
-        event['status'] = "Removed channel group info from channel map json"
+        event['status'] = "Removed channel group info from channel map json, and deleted item from database"
+
+
 
         return event
