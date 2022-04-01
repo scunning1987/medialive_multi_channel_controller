@@ -79,6 +79,7 @@ def lambda_handler(event, context):
 
         input_name = eml_input['input_name']
         input_type = eml_input['input_type']
+        LOGGER.info("Input Type to create : %s " % (input_type))
 
 
         if input_type == "MEDIACONNECT":
@@ -88,9 +89,10 @@ def lambda_handler(event, context):
             try:
                 input_create_response = eml_client.create_input(MediaConnectFlows=[{"FlowArn":flow_arns[0]},{"FlowArn":flow_arns[1]}],Type=input_type,Name=input_name,RoleArn=role_arn)
             except Exception as e:
-                exceptions.append("Couldn't create input, got exception %s " % (e))
+                exceptions.append("Couldn't create EMX input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
                 return "Couldn't create input, got exception %s " % (e)
+            LOGGER.info("Created MEDIACONNECT input")
             return input_create_response
 
         elif input_type == "MP4_FILE":
@@ -98,9 +100,10 @@ def lambda_handler(event, context):
             try:
                 input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']},{'Url':eml_input['url']}],RoleArn=role_arn)
             except Exception as e:
-                exceptions.append("Couldn't create input, got exception %s " % (e))
+                exceptions.append("Couldn't create MP4 input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
                 return "Couldn't create input, got exception %s " % (e)
+            LOGGER.info("Created MP4 input")
             return input_create_response
 
         elif input_type == "URL_PULL":
@@ -108,15 +111,17 @@ def lambda_handler(event, context):
             try:
                 input_create_response = eml_client.create_input(Type=input_type,Name=input_name,Sources=[{'Url':eml_input['url']},{'Url':eml_input['url']}],RoleArn=role_arn)
             except Exception as e:
-                exceptions.append("Couldn't create input, got exception %s " % (e))
+                exceptions.append("Couldn't create PULL input, got exception %s " % (e))
                 LOGGER.error("Couldn't create input, got exception %s " % (e))
                 return "Couldn't create input, got exception %s " % (e)
+            LOGGER.info("Created URL PULL input")
             return input_create_response
 
     def emlInputCreation(prefix):
 
         name_prefix = "%s-%s" % (prefix,input_name_prefix)
 
+        eml_input_list = []
         eml_input_list = [
             {"input_name":"%s-emx" % (name_prefix),"input_type":"MEDIACONNECT","arn":emx_flow_arns},
             # {"input_name":"%s-hls-pull-input" % (name_prefix),"input_type":"URL_PULL","url":"https://af93123e0d76e324607b5414578c69b2.p05sqb.channel-assembly.mediatailor.us-west-2.amazonaws.com/v1/channel/cunsco-1/hls.m3u8"},
@@ -126,6 +131,7 @@ def lambda_handler(event, context):
 
         for eml_input in eml_input_list:
 
+
             LOGGER.info("EML Input dictionary : %s " % (eml_input))
             input_create_response = createEMLInput(eml_input)
 
@@ -133,9 +139,7 @@ def lambda_handler(event, context):
 
                 return errorOut()
 
-
             input_attachments.append(input_create_response['Input'])
-
         return input_attachments
 
     def createEMLChannel():
@@ -306,6 +310,7 @@ def lambda_handler(event, context):
             # This includes user input data from the UI
 
 
+            flow_to_start = []
 
             for channel in range(0,int(channels)):
 
@@ -316,10 +321,15 @@ def lambda_handler(event, context):
                 #
                 # Create EMX Flow
                 #
+
                 if channel_data['channels'][channel]['input'] == "CREATE":
+
+
                     channel += 1
                     flow_suffixes = ["b","c"]
+
                     for suffix in flow_suffixes:
+
                         flowname = "%s_%s" % (input_name_prefix,suffix)
                         az = "%s%s" % (region, suffix)
                         emx_response = createFlow(flowname,az)
@@ -340,6 +350,7 @@ def lambda_handler(event, context):
 
                         # this is the Arn of the new Flow
                         emx_flow_arn = emx_response['Flow']['FlowArn']
+                        flow_to_start.append(emx_flow_arn)
 
                         #
                         # Start Flow
@@ -356,13 +367,13 @@ def lambda_handler(event, context):
                     #
 
                     input_attachments = []
-                    input_attachments += emlInputCreation("ott")
+                    emlInputCreation("ott")
                     if event['detail']['channel_data']['mux']['create'] == "True":
 
-                        input_attachments += emlInputCreation("mux")
-
+                        emlInputCreation("mux")
 
                     medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
+
 
 
                 else:
@@ -370,10 +381,10 @@ def lambda_handler(event, context):
                     emx_flow_arns = channel_data['channels'][channel]['input']
 
                     input_attachments = []
-                    input_attachments += emlInputCreation("ott")
+                    emlInputCreation("ott")
                     if event['detail']['channel_data']['mux']['create'] == "True":
 
-                        input_attachments += emlInputCreation("mux")
+                        emlInputCreation("mux")
 
                     medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
@@ -389,10 +400,10 @@ def lambda_handler(event, context):
                 input_name_prefix = "%s_%02d" % (deployment_name,channel)
 
                 input_attachments = []
-                input_attachments += emlInputCreation("ott")
+                emlInputCreation("ott")
                 if event['detail']['channel_data']['mux']['create'] == "True":
 
-                    input_attachments += emlInputCreation("mux")
+                    emlInputCreation("mux")
 
 
 
@@ -535,6 +546,11 @@ def lambda_handler(event, context):
         if len(exceptions) > 0:
             return errorOut()
         else:
+
+            LOGGER.info("Flows to start : %s " % (flow_to_start))
+            for emx_flow in flow_to_start:
+                startFlow(emx_flow)
+
             event['status'] = "Completed creation of MediaLive inputs with no issues"
             return event
 

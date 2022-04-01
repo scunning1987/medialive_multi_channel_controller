@@ -92,8 +92,9 @@ def lambda_handler(event, context):
         slate_key = slate_key_stopped
     elif event_state == "STOPPING":
         slate_key = slate_key_stopping
-    else: # STARTING
+    elif event_state == "STARTING":
         slate_key = slate_key_starting
+
 
     LOGGER.info("Event state is : %s , going to use slate jpg %s " % (event_state,slate_key))
 

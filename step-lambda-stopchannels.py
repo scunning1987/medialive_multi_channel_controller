@@ -178,8 +178,13 @@ def lambda_handler(event, context):
     # Get list of MediaLive Channels
     channels = []
     for channel_number in json_item['MediaLive']:
-        channel_id = json_item['MediaLive'][channel_number]['Channel_Arn'].split(":")[-1]
-        channels.append(channel_id)
+
+        if json_item['MediaLive'][channel_number]['Channel_Arn_OTT'] != "None":
+            channel_id = json_item['MediaLive'][channel_number]['Channel_Arn_OTT'].split(":")[-1]
+            channels.append(channel_id)
+        if json_item['MediaLive'][channel_number]['Channel_Arn_MUX'] != "None":
+            channel_id = json_item['MediaLive'][channel_number]['Channel_Arn_MUX'].split(":")[-1]
+            channels.append(channel_id)
 
     if task == "start":
         LOGGER.info("Starting channels for deployment : %s " % (deployment_name))

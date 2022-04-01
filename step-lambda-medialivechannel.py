@@ -250,6 +250,8 @@ def lambda_handler(event, context):
 
             if channel_data['mux']['create'] == "True":
 
+                pipeline = "STANDARD"
+
                 LOGGER.info("This group will be a statmux group, creating statmux channels now")
 
 
@@ -264,6 +266,8 @@ def lambda_handler(event, context):
 
                     encoder_settings = statmux_template['EncoderSettings']
                     destinations_template = statmux_template['Destinations']
+
+
 
                     # InputAttachmentName, InputId, InputSettings
                     channel_input_attachments = []
@@ -289,7 +293,6 @@ def lambda_handler(event, context):
 
                             channel_input_attachments.append(input_properties)
 
-                    return channel_input_attachments
                     # construct medialive event outputs
                     for destination in destinations_template:
                         if 'MultiplexSettings' in destination: # This output is to a multiplex
@@ -310,7 +313,6 @@ def lambda_handler(event, context):
 
                     channel_name = "mux-%s_%02d" % (deployment_name,channel)
 
-                    return channel_input_attachments
                     medialive_create_channel_response = createEMLChannel()
 
                     if len(exceptions) > 0:
@@ -319,14 +321,19 @@ def lambda_handler(event, context):
                     channel_arn = medialive_create_channel_response['Channel']['Arn']
 
                     # Update json item
-                    json_item["MediaLive"][str(channel)]['Channel_Name_Mux'] = channel_name
-                    json_item["MediaLive"][str(channel)]['Channel_Arn_Mux'] = channel_arn
+                    json_item["MediaLive"][str(channel)]['Channel_Name_MUX'] = channel_name
+                    json_item["MediaLive"][str(channel)]['Channel_Arn_MUX'] = channel_arn
 
+            else:
 
-            ## No function exit, pass on to the create_ott_group below
+                for channel in range(1,int(channels)+1):
+                    json_item["MediaLive"][str(channel)]['Channel_Name_MUX'] = "None"
+                    json_item["MediaLive"][str(channel)]['Channel_Arn_MUX'] = "None"
 
         create_ott_group = True
         if create_ott_group:
+
+            pipeline = "SINGLE_PIPELINE"
 
             #
             # No matter what we create OTT channels
@@ -424,9 +431,14 @@ def lambda_handler(event, context):
             for channel in list(medialive_channels.keys()):
 
                 try:
-                    channel_arn = medialive_channels[channel]['Channel_Arn']
-                    channel_id = channel_arn.split(":")[-1]
+                    channel_arn_ott = medialive_channels[channel]['Channel_Arn_OTT']
+                    channel_id = channel_arn_ott.split(":")[-1]
                     deleteEMLChannel(channel_id)
+
+                    if medialive_channels[channel]['Channel_Arn_MUX'] != "None":
+                        channel_arn_mux = medialive_channels[channel]['Channel_Arn_OTT']
+                        channel_id = channel_arn_mux.split(":")[-1]
+                        deleteEMLChannel(channel_id)
 
                 except:
 

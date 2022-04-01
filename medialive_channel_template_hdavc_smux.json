@@ -70,7 +70,7 @@
           "H264Settings": {
             "AfdSignaling": "NONE",
             "ColorMetadata": "IGNORE",
-            "AdaptiveQuantization": "AUTO",
+            "AdaptiveQuantization": "MEDIUM",
             "EntropyEncoding": "CABAC",
             "FlickerAq": "ENABLED",
             "ForceFieldPictures": "DISABLED",

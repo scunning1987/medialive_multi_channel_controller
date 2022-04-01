@@ -205,11 +205,18 @@ def lambda_handler(event, context):
             # Get MediaLive info
             medialive_channel = json_item['MediaLive'][str(channel)]
 
-            mux_channel_name = medialive_channel['Channel_Name']
-            mux_channel_id = medialive_channel['Channel_Arn'].split(":")[-1]
+            if medialive_channel['Channel_Name_MUX'] != "None":
+                mux_channel_name = medialive_channel['Channel_Name_MUX']
+                mux_channel_id = medialive_channel['Channel_Arn_MUX'].split(":")[-1]
+            else:
+                mux_channel_name = medialive_channel['Channel_Name_OTT']
+                mux_channel_id = medialive_channel['Channel_Arn_OTT'].split(":")[-1]
+
             frame_size = "SD" # FIX
             codec = "AVC" # FIX
-            ott_channel_id = medialive_channel['Channel_Arn'].split(":")[-1] # FIX
+
+
+            ott_channel_id = medialive_channel['Channel_Arn_OTT'].split(":")[-1] # FIX
 
 
             # Get MediaPackage info
