@@ -92,7 +92,19 @@ def lambda_handler(event, context):
         LOGGER.info("MediaLive Multiplex Program Created : %s " % (eml_create_prg_response))
         return eml_create_prg_response
 
-    # JSON_TO_DYNAMODB_BUILDER
+    # Describe Multiplex
+    def describe_multiplex(mux_id):
+        try:
+            describe_response = eml_client.describe_multiplex(MultiplexId=mux_id)
+        except Exception as e:
+            msg = "Unable to create program in multiplex %s , got exception : %s" % (mux_id,e)
+            LOGGER.error(msg)
+            exceptions.append(msg)
+            describe_response = msg
+        LOGGER.info("MediaLive Multiplex Describe Complete")
+        return describe_response
+
+        # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
         for k,v in my_dict.items():
 
@@ -244,6 +256,13 @@ def lambda_handler(event, context):
                 programs[str(channel)] = multiplex_program_settings
 
             multiplex_db_item["1"]['Programs'] = programs
+
+
+            # Describe mux and then add Destination to multiplex item
+            multiplex_details = describe_multiplex(multiplex_id)
+            multiplex_destinations = multiplex_details[Destinations]
+
+            multiplex_db_item["1"]['Destinations'] = {"A":multiplex_destinations[0]['MediaConnectSettings'],"B":multiplex_destinations[1]['MediaConnectSettings']}
 
             json_item['Multiplex'] = multiplex_db_item
 

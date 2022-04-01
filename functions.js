@@ -222,8 +222,9 @@ function chliveswitch() {
   document.getElementById('live').classList.add('pressedbutton');
   input = document.getElementById("live_source_dropdown_select").value
   console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector].mux_channel_id)
-  channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region
-  emlSwitchAction(input, channelid, "", "immediateSwitchLive", "", 200, "master", "immediateswitch")
+  emlSwitchAction(input, live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region, "", "immediateSwitchLive", "", 200, "master", "immediateswitch")
+  emlSwitchAction(input, live_event_map[pipSelector].ott_channel_id + ":" + channel_groups[groupSelector].region, "", "immediateSwitchLive", "", 200, "master", "immediateswitch")
+
   }
 
   // reset styling on the pip now that the action has been performed
@@ -237,11 +238,14 @@ function chvodswitch(){
     console.log("Operator has not selected a channel thumbnail. Select a thumbnail first before an action can be performed")
     alert("Please select a channel thumbnail first!")
   } else {
+   console.log("PipSelector value is : " + pipSelector);
+   console.log("OTT channel id is : " + live_event_map[pipSelector]['ott_channel_id'] + ", and MUX channel id is : " + live_event_map[pipSelector]['mux_channel_id'])
   document.getElementById('vod').classList.add('pressedbutton');
   input = document.getElementById("vod_source_dropdown_select").value
-  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector].mux_channel_id)
-  channelid = live_event_map[pipSelector].mux_channel_id + ":" + channel_groups[groupSelector].region
-  emlSwitchAction(input, channelid, bucket, "immediateSwitch", "", 200, "master", "immediateswitch")
+  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector]['ott_channel_id'])
+  emlSwitchAction(input, live_event_map[pipSelector]['mux_channel_id'] + ":" + channel_groups[groupSelector]['region'], bucket, "immediateSwitch", "", 200, "master", "immediateswitch")
+  console.log("Switching to input: "+input+" for channel ID : "+live_event_map[pipSelector]['mux_channel_id'])
+  emlSwitchAction(input, live_event_map[pipSelector]['ott_channel_id'] + ":" + channel_groups[groupSelector]['region'], bucket, "immediateSwitch", "", 200, "master", "immediateswitch")
   }
 
   fadeAway('vod')
@@ -1189,13 +1193,13 @@ function getLiveInputs(apiendpointurl) {
 
 /// EML SWITCH - START
 
-function emlSwitchAction(file, channelid, bucket, takeType, follow, maxresults, awsaccount, scte){
+function emlSwitchAction(file, chid, bucket, takeType, follow, maxresults, awsaccount, scte){
     console.log("eml switch action api call: initializing")
     console.log("Executing API PUT action for switch type "+takeType)
 
     var param1 = "awsaccount="+awsaccount;
     var param2 = "&functiontorun="+takeType
-    var param3 = "&channelid="+channelid;
+    var param3 = "&channelid="+chid;
     var param4 = "&maxresults="+maxresults;
     var param5 = "&bucket="+bucket;
     var param6 = "&input="+file;
@@ -1205,7 +1209,7 @@ function emlSwitchAction(file, channelid, bucket, takeType, follow, maxresults, 
     console.log("eml switch action api call - executing : "+url)
 
     var putReq = new XMLHttpRequest();
-    putReq.open("PUT", url, false);
+    putReq.open("PUT", url, true);
     putReq.setRequestHeader("Accept","*/*");
     putReq.send();
     var timenow = new Date().toTimeString()
