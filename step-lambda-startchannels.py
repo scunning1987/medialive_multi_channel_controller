@@ -81,6 +81,26 @@ def lambda_handler(event, context):
             return msg
         return response
 
+    def multiplexStart(multiplex_id):
+        try:
+            response = eml_client.start_multiplex(MultiplexId=multiplex_id)
+        except Exception as e:
+            msg = "Unable to start multiplex, got exception: %s " % (e)
+            exceptions.append(msg)
+            LOGGER.error(msg)
+            return msg
+        return response
+
+    def multiplexStop(multiplex_id):
+        try:
+            response = eml_client.stop_multiplex(MultiplexId=multiplex_id)
+        except Exception as e:
+            msg = "Unable to stop multiplex, got exception: %s " % (e)
+            exceptions.append(msg)
+            LOGGER.error(msg)
+            return msg
+        return response
+
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
         for k,v in my_dict.items():
@@ -188,10 +208,21 @@ def lambda_handler(event, context):
 
     if task == "start":
         LOGGER.info("Starting channels for deployment : %s " % (deployment_name))
-        response = batchStart(channels,[])
-        return response
+        state_change_response = batchStart(channels,[])
+
+
+        if json_item['MediaLive'][channel_number]['Channel_Arn_MUX'] != "None":
+            multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
+            state_change_response += multiplexStart(multiplex_id)
+
+        return state_change_response
 
     else:
         LOGGER.info("Stopping channels for deployment : %s " % (deployment_name))
         response = batchStop(channels,[])
-        return response
+
+        if json_item['MediaLive'][channel_number]['Channel_Arn_MUX'] != "None":
+            multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
+            state_change_response += multiplexStop(multiplex_id)
+
+        return state_change_response

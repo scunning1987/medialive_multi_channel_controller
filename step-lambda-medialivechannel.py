@@ -444,6 +444,13 @@ def lambda_handler(event, context):
 
                     delete_exceptions.append("Unable to get MediaLive Channel Arn info from DB for channel : %s " % (channel_id))
 
+
+            multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
+            try:
+                response = eml_client.delete_multiplex(MultiplexId=multiplex_id)
+            except Exception as e:
+                delete_exceptions.append("Unable to delete multiplex : %s " % (e))
+
             event['status'] = "Completed deletion of MediaLive Channels"
             event['eml_channel_delete_exceptions'] = delete_exceptions
             event['detail']['delete_tasks']['medialive_channels'] = 1
