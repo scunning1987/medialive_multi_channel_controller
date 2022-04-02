@@ -382,15 +382,16 @@ def lambda_handler(event, context):
 
                     else:
                         # This is an ARN for an existing flow, add it to the lists of inputs to create
-                        emx_flow_arns.append(channel_data['channels'][channel]['input'])
+                        emx_flow_arns.append(chinput)
 
-                    input_attachments = []
-                    emlInputCreation("ott")
-                    if event['detail']['channel_data']['mux']['create'] == "True":
 
-                        emlInputCreation("mux")
+                input_attachments = []
+                emlInputCreation("ott")
+                if event['detail']['channel_data']['mux']['create'] == "True":
 
-                    medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
+                    emlInputCreation("mux")
+
+                medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
             json_item['MediaConnect'] = mediaconnect_db_item
             json_item['MediaLive'] = medialive_db_item
