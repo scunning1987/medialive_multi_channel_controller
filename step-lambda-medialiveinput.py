@@ -322,63 +322,67 @@ def lambda_handler(event, context):
                 # Create EMX Flow
                 #
 
-                if channel_data['channels'][channel]['input'] == "CREATE":
+                chinputs = channel_data['channels'][channel]['input']
+
+                for chinput in chinputs:
+
+                    if chinput == "CREATE":
 
 
-                    channel += 1
-                    flow_suffixes = ["b","c"]
+                        channel += 1
+                        flow_suffixes = ["b","c"]
 
-                    for suffix in flow_suffixes:
+                        for suffix in flow_suffixes:
 
-                        flowname = "%s_%s" % (input_name_prefix,suffix)
-                        az = "%s%s" % (region, suffix)
-                        emx_response = createFlow(flowname,az)
-                        if len(exceptions) > 0:
-                            return errorOut()
+                            flowname = "%s_%s" % (input_name_prefix,suffix)
+                            az = "%s%s" % (region, suffix)
+                            emx_response = createFlow(flowname,az)
+                            if len(exceptions) > 0:
+                                return errorOut()
 
+                            #
+                            # Create Item Structure for DB entry
+                            #
+
+                            mediaconnect_db_item[str(channel)] = {
+                                "Flow_Name":emx_response['Flow']['Name'],
+                                "Flow_Arn":emx_response['Flow']['FlowArn'],
+                                "IngestIp":emx_response['Flow']['Source']['IngestIp'],
+                                "IngestPort":emx_response['Flow']['Source']['IngestPort'],
+                                "IngestProtocol":emx_response['Flow']['Source']['Transport']['Protocol']
+                            }
+
+                            # this is the Arn of the new Flow
+                            emx_flow_arn = emx_response['Flow']['FlowArn']
+                            flow_to_start.append(emx_flow_arn)
+
+                            #
+                            # Start Flow
+                            #
+                            #startFlow(emx_flow_arn)
+
+                            if len(exceptions) > 0:
+
+                                return errorOut()
+
+                            emx_flow_arns.append(emx_response['Flow']['FlowArn'])
                         #
-                        # Create Item Structure for DB entry
+                        # Create EML Input
                         #
 
-                        mediaconnect_db_item[str(channel)] = {
-                            "Flow_Name":emx_response['Flow']['Name'],
-                            "Flow_Arn":emx_response['Flow']['FlowArn'],
-                            "IngestIp":emx_response['Flow']['Source']['IngestIp'],
-                            "IngestPort":emx_response['Flow']['Source']['IngestPort'],
-                            "IngestProtocol":emx_response['Flow']['Source']['Transport']['Protocol']
-                        }
+                        input_attachments = []
+                        emlInputCreation("ott")
+                        if event['detail']['channel_data']['mux']['create'] == "True":
 
-                        # this is the Arn of the new Flow
-                        emx_flow_arn = emx_response['Flow']['FlowArn']
-                        flow_to_start.append(emx_flow_arn)
+                            emlInputCreation("mux")
 
-                        #
-                        # Start Flow
-                        #
-                        #startFlow(emx_flow_arn)
-
-                        if len(exceptions) > 0:
-
-                            return errorOut()
-
-                        emx_flow_arns.append(emx_response['Flow']['FlowArn'])
-                    #
-                    # Create EML Input
-                    #
-
-                    input_attachments = []
-                    emlInputCreation("ott")
-                    if event['detail']['channel_data']['mux']['create'] == "True":
-
-                        emlInputCreation("mux")
-
-                    medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
+                        medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
 
 
-                else:
-                    # This is an ARN for an existing flow, add it to the lists of inputs to create
-                    emx_flow_arns = channel_data['channels'][channel]['input']
+                    else:
+                        # This is an ARN for an existing flow, add it to the lists of inputs to create
+                        emx_flow_arns.append(channel_data['channels'][channel]['input'])
 
                     input_attachments = []
                     emlInputCreation("ott")

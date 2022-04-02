@@ -6,6 +6,7 @@ import datetime
 import re
 import uuid
 import base64
+import time
 
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
@@ -430,22 +431,24 @@ def lambda_handler(event, context):
             delete_exceptions = []
             for channel in list(medialive_channels.keys()):
 
-                try:
-                    channel_arn_ott = medialive_channels[channel]['Channel_Arn_OTT']
-                    channel_id = channel_arn_ott.split(":")[-1]
+
+                channel_arn_ott = medialive_channels[channel]['Channel_Arn_OTT']
+                channel_id = channel_arn_ott.split(":")[-1]
+
+                deleteEMLChannel(channel_id)
+
+                if medialive_channels[channel]['Channel_Arn_MUX'] != "None":
+                    channel_arn_mux = medialive_channels[channel]['Channel_Arn_OTT']
+                    channel_id = channel_arn_mux.split(":")[-1]
                     deleteEMLChannel(channel_id)
 
-                    if medialive_channels[channel]['Channel_Arn_MUX'] != "None":
-                        channel_arn_mux = medialive_channels[channel]['Channel_Arn_OTT']
-                        channel_id = channel_arn_mux.split(":")[-1]
-                        deleteEMLChannel(channel_id)
-
-                except:
-
-                    delete_exceptions.append("Unable to get MediaLive Channel Arn info from DB for channel : %s " % (channel_id))
 
 
+                    delete_exceptions.append("Unable to get MediaLive Channel Arn info from DB for channel : %s" % (channel_id))
+
+            time.sleep(5)
             multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
+
             try:
                 response = eml_client.delete_multiplex(MultiplexId=multiplex_id)
             except Exception as e:

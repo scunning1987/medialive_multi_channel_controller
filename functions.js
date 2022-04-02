@@ -77,7 +77,9 @@ function tableCreateForm(channel_list){
         emx_flow_options += "<option value=" + mediaconnect_flow_list[key]['flow_arn']  + ">" + mediaconnect_flow_list[key]['flow_name'] + "</option>"
         }
 
-    emx_flow_dropdown = '<select>'+emx_flow_options+'</select'
+    emx_flow_dropdown = '<select>'+emx_flow_options+'</select>'
+    emx_flow_dropdown += emx_flow_dropdown
+
     console.log("dropdown : " + emx_flow_dropdown)
     function generateTable(inputtable, channel_list) {
       for (let element of channel_list) {
@@ -706,10 +708,19 @@ function management_api () {
     var tableRow = table.rows[i]; var rowData = {};
     for (var j=0; j<tableRow.cells.length; j++) {
       if ( tableRow.cells[j].innerHTML.includes('select') ) {
-        var e = tableRow.cells[j].getElementsByTagName("select")[0];
-        var myValue = e.options[e.selectedIndex].value;
-        console.log("dropdown value : " + myValue)
-        rowData[ headers[j] ] = myValue;
+
+        if ( tableRow.cells[j].getElementsByTagName("select").length > 1 ) {
+            var e1 = tableRow.cells[j].getElementsByTagName("select")[0];
+            var e2 = tableRow.cells[j].getElementsByTagName("select")[1];
+
+            var myValue = [ e1.options[e1.selectedIndex].value, e2.options[e2.selectedIndex].value ];
+        } else {
+            var e1 = tableRow.cells[j].getElementsByTagName("select")[0];
+            var myValue = e1.options[e1.selectedIndex].value;
+        }
+
+        rowData[ headers[j] ] = myValue
+
       } else {
         rowData[ headers[j] ] = tableRow.cells[j].innerHTML
      }
