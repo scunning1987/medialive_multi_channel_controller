@@ -41,7 +41,7 @@ def lambda_handler(event, context):
     def deleteItem():
         try:
             key = {'Group_Name':{'S':deployment_name}}
-            response = client.delete_item(TableName=dynamodb_table_name,Key=key)
+            response = db_client.delete_item(TableName=dynamodb_table_name,Key=key)
         except Exception as e:
             msg = "Unable to delete item from database, got exception : %s - please do this manually. Item : %s" % (e,deployment_name)
             LOGGER.error(msg)
