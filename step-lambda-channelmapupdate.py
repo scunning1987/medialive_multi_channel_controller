@@ -256,12 +256,16 @@ def lambda_handler(event, context):
         deployment_info['region'] = region
         deployment_info['channels'] = channel_list
 
+        if event['detail']['channel_data']['mux']['create'] == "True":
 
+            deployment_info['mux_details']['total_rate'] = event['detail']['channel_data']['mux']['bitrate']
+            deployment_info['mux_details']['output'] = [json_item['Multiplex']['1']['Destinations']['A']['EntitlementArn'],json_item['Multiplex']['1']['Destinations']['B']['EntitlementArn']]
 
         channel_map_json['channel_groups'][deployment_name] = deployment_info
 
         update_channel_map(bucket,key,channel_map_json)
 
+        return channel_map_json
         return event
 
     else: ## this is delete

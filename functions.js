@@ -406,6 +406,9 @@ function thumbclick(channel_number) {
   if ( channel_groups[groupSelector]['mux_details']['total_rate'] > 0 ) {
     console.log("This group is a mux group. We will display mux data")
     document.getElementById("channel_info").innerHTML += '<h4> Group Mux Data</h4>'
+    document.getElementById("channel_info").innerHTML += '<p> Total Mux Rate : '+channel_groups[groupSelector].mux_details.total_rate+' </p>'
+    document.getElementById("channel_info").innerHTML += '<p> Mux Retrieval Entitlements : '+channel_groups[groupSelector].mux_details.output+' </p>'
+
     }
 
 }
