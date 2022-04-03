@@ -212,8 +212,14 @@ def lambda_handler(event, context):
                 mux_channel_name = medialive_channel['Channel_Name_OTT']
                 mux_channel_id = medialive_channel['Channel_Arn_OTT'].split(":")[-1]
 
-            frame_size = "SD" # FIX
+            # This is static right now, fix before it becomes an issue
+            frame_size = "HD" # FIX
             codec = "AVC" # FIX
+
+            # Get MediaConnect source info
+            mediaconnect_sources = json_item['MediaConnect'][str(channel)]
+            source_a = "%s://%s:%s" % (mediaconnect_sources[0]['IngestProtocol'],mediaconnect_sources[0]['IngestIp'],mediaconnect_sources[0]['IngestPort'])
+            source_b = "%s://%s:%s" % (mediaconnect_sources[1]['IngestProtocol'],mediaconnect_sources[1]['IngestIp'],mediaconnect_sources[1]['IngestPort'])
 
 
             ott_channel_id = medialive_channel['Channel_Arn_OTT'].split(":")[-1] # FIX
@@ -239,6 +245,9 @@ def lambda_handler(event, context):
             channel_data['ott_channel_id'] = ott_channel_id
             channel_data['ott_url'] = ott_url
             channel_data['jpg_url'] = jpg_url
+            channel_data['source_a'] = source_a
+            channel_data['source_b'] = source_b
+
 
             channel_list.append(channel_data)
 
@@ -251,7 +260,7 @@ def lambda_handler(event, context):
 
         channel_map_json['channel_groups'][deployment_name] = deployment_info
 
-
+        return channel_map_json
         update_channel_map(bucket,key,channel_map_json)
 
         return event
