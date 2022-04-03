@@ -167,7 +167,7 @@ def lambda_handler(event, context):
     def createFlow(flowname,az):
         LOGGER.info("Creating flow for channel")
         try:
-            create_flow_response = emx_client.create_flow(Name=flowname,AvailabilityZone=az,Source={'Name': flowname,'Protocol': 'zixi-push','WhitelistCidr':'0.0.0.0/0'})
+            create_flow_response = emx_client.create_flow(Name=flowname,AvailabilityZone=az,Source={'Name': flowname,'Protocol': 'srt-listener','IngestPort':5000,'WhitelistCidr':'0.0.0.0/0'})
         except Exception as e:
             msg = "Unable to create flow %s, got exception : %s" % (flowname,e)
             LOGGER.error(msg)
