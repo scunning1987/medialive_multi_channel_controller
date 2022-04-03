@@ -194,9 +194,11 @@ def lambda_handler(event, context):
     # initialize medialive boto3 client
     region = json_item['Region']
     eml_client = boto3.client('medialive', region_name=region)
+    emx_client = boto3.client('mediaconnect', region_name=region)
 
     # Get list of MediaLive Channels
     channels = []
+    state_list = []
 
     for channel_number in json_item['MediaLive']:
 
@@ -208,22 +210,40 @@ def lambda_handler(event, context):
             channels.append(channel_id)
 
     if task == "start":
-        LOGGER.info("Starting channels for deployment : %s " % (deployment_name))
-        state_change_response = batchStart(channels,[])
+
+        try:
+            LOGGER.info("Starting channels for deployment : %s " % (deployment_name))
+            state_list.append(batchStart(channels,[]))
 
 
-        if json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'] != "None":
-            multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
-            state_change_response += multiplexStart(multiplex_id)
+            if json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'] != "None":
+                multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
+                state_list.append(multiplexStart(multiplex_id))
 
-        return state_change_response
+            ##
+            ## Start EMX Flows
+            ##
+            if str(channel_number) in json_item['MediaConnect']:
+                ## This should really always be true...
+
+                for flow in json_item['MediaConnect'][str(channel_number)]:
+
+                    flow_arn = flow['Flow_Arn']
+                    state_list.append(emx_client.start_flow(FlowArn=flow_arn))
+
+            return state_list
+        except Exception as e:
+            msg = "Had an issue starting somewhere; got exception : %s " % (e)
+            LOGGER.error(msg)
+            raise Exception(msg)
 
     else:
+        state_list = []
         LOGGER.info("Stopping channels for deployment : %s " % (deployment_name))
-        response = batchStop(channels,[])
+        state_list.append(batchStop(channels,[]))
 
         if json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'] != "None":
             multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
-            state_change_response += multiplexStop(multiplex_id)
+            state_list.append(multiplexStop(multiplex_id))
 
-        return state_change_response
+        return state_list

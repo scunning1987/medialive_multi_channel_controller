@@ -260,7 +260,6 @@ def lambda_handler(event, context):
 
         channel_map_json['channel_groups'][deployment_name] = deployment_info
 
-        return channel_map_json
         update_channel_map(bucket,key,channel_map_json)
 
         return event

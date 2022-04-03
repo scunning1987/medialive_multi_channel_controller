@@ -400,7 +400,8 @@ function thumbclick(channel_number) {
   document.getElementById("channel_info").innerHTML += '<p> Channel ID : '+live_event_map[pipSelector].mux_channel_id+' </p>'
   document.getElementById("channel_info").innerHTML += '<p> AWS Region : '+channel_groups[groupSelector].region+' </p>'
   document.getElementById("channel_info").innerHTML += '<p><a target="_blank" href=https://hls-js.netlify.app/demo/?src='+live_event_map[pipSelector].ott_url+'>OTT Playback</a></p>'
-
+  document.getElementById("channel_info").innerHTML += '<p> Source A : '+live_event_map[pipSelector].source_a+' </p>'
+  document.getElementById("channel_info").innerHTML += '<p> Source B : '+live_event_map[pipSelector].source_b+' </p>'
   // if this channel is in a mux group, display channel and mux info
   if ( channel_groups[groupSelector]['mux_details']['total_rate'] > 0 ) {
     console.log("This group is a mux group. We will display mux data")
@@ -750,7 +751,7 @@ function management_api () {
     var e = document.getElementById("groupcreateregion");
     create_region = e.value;
     group_name = document.getElementById("newgroupname").value
-    alert(document.getElementById("newgroupname").value)
+
     if ( parseInt(muxrate) > 0 ) {
       createmux = "True"
     } else {
