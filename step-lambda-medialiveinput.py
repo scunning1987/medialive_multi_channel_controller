@@ -189,7 +189,7 @@ def lambda_handler(event, context):
 
     def describeFlow(existing_flow_arn):
         try:
-            describe_response = client.describe_flow(FlowArn=existing_flow_arn)
+            describe_response = emx_client.describe_flow(FlowArn=existing_flow_arn)
         except Exception as e:
             msg = "Unable to describe existing MediaConnect flow, arn : %s , got exception : %s " % (existing_flow_arn,e)
             LOGGER.error(msg)
@@ -390,17 +390,18 @@ def lambda_handler(event, context):
                         # describe flow
                         describe_flow_response = describeFlow(existing_flow_arn)
 
-                        return describe_flow_response
-
                         # error out
+                        if len(exceptions) > 0:
+                            return errorOut()
+
 
                         # add response info to dictionary
                         mediaconnect_flow_info = {
-                            "Flow_Name":"",
-                            "Flow_Arn":"",
-                            "IngestIp":"",
-                            "IngestPort":"",
-                            "IngestProtocol":""
+                            "Flow_Name":describe_flow_response['Flow']['Name'],
+                            "Flow_Arn":describe_flow_response['Flow']['FlowArn'],
+                            "IngestIp":describe_flow_response['Flow']['Source']['IngestIp'],
+                            "IngestPort":describe_flow_response['Flow']['Source']['IngestPort'],
+                            "IngestProtocol":describe_flow_response['Flow']['Source']['Transport']['Protocol']
                         }
 
                         mediaconnect_flows_info.append(mediaconnect_flow_info)

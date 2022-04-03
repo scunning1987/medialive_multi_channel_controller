@@ -197,13 +197,14 @@ def lambda_handler(event, context):
 
     # Get list of MediaLive Channels
     channels = []
+
     for channel_number in json_item['MediaLive']:
 
-        if json_item['MediaLive'][channel_number]['Channel_Arn_OTT'] != "None":
-            channel_id = json_item['MediaLive'][channel_number]['Channel_Arn_OTT'].split(":")[-1]
+        if json_item['MediaLive'][str(channel_number)]['Channel_Arn_OTT'] != "None":
+            channel_id = json_item['MediaLive'][str(channel_number)]['Channel_Arn_OTT'].split(":")[-1]
             channels.append(channel_id)
-        if json_item['MediaLive'][channel_number]['Channel_Arn_MUX'] != "None":
-            channel_id = json_item['MediaLive'][channel_number]['Channel_Arn_MUX'].split(":")[-1]
+        if json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'] != "None":
+            channel_id = json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'].split(":")[-1]
             channels.append(channel_id)
 
     if task == "start":
@@ -211,7 +212,7 @@ def lambda_handler(event, context):
         state_change_response = batchStart(channels,[])
 
 
-        if json_item['MediaLive'][channel_number]['Channel_Arn_MUX'] != "None":
+        if json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'] != "None":
             multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
             state_change_response += multiplexStart(multiplex_id)
 
@@ -221,7 +222,7 @@ def lambda_handler(event, context):
         LOGGER.info("Stopping channels for deployment : %s " % (deployment_name))
         response = batchStop(channels,[])
 
-        if json_item['MediaLive'][channel_number]['Channel_Arn_MUX'] != "None":
+        if json_item['MediaLive'][str(channel_number)]['Channel_Arn_MUX'] != "None":
             multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
             state_change_response += multiplexStop(multiplex_id)
 
