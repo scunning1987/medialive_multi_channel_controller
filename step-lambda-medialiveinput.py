@@ -187,6 +187,16 @@ def lambda_handler(event, context):
         LOGGER.info("MediaConnect Flow Started : %s " % (flow_arn))
         return start_flow_response
 
+    def describeFlow(existing_flow_arn):
+        try:
+            describe_response = client.describe_flow(FlowArn=existing_flow_arn)
+        except Exception as e:
+            msg = "Unable to describe existing MediaConnect flow, arn : %s , got exception : %s " % (existing_flow_arn,e)
+            LOGGER.error(msg)
+            exceptions.append(msg)
+            return msg
+        return describe_response
+
     # JSON_TO_DYNAMODB_BUILDER
     def json_to_dynamo(dicttopopulate,my_dict):
         for k,v in my_dict.items():
@@ -316,6 +326,7 @@ def lambda_handler(event, context):
 
                 input_name_prefix = "%s_%02d" % (deployment_name,channel+1)
 
+                mediaconnect_flows_info = []
                 emx_flow_arns = []
 
                 #
@@ -324,66 +335,82 @@ def lambda_handler(event, context):
 
                 chinputs = channel_data['channels'][channel]['input']
 
-                for chinput in chinputs:
+                channel += 1
 
-                    if chinput == "CREATE":
+                for chinput in range(0,len(chinputs)):
 
+                    if chinputs[chinput] == "CREATE":
 
-                        channel += 1
                         flow_suffixes = ["b","c"]
 
-                        for suffix in flow_suffixes:
+                        suffix = flow_suffixes[chinput]
 
-                            flowname = "%s_%s" % (input_name_prefix,suffix)
-                            az = "%s%s" % (region, suffix)
-                            emx_response = createFlow(flowname,az)
-                            if len(exceptions) > 0:
-                                return errorOut()
+                        flowname = "%s_%s" % (input_name_prefix,suffix)
+                        az = "%s%s" % (region, suffix)
+                        emx_response = createFlow(flowname,az)
+                        if len(exceptions) > 0:
+                            return errorOut()
 
-                            #
-                            # Create Item Structure for DB entry
-                            #
-
-                            mediaconnect_db_item[str(channel)] = {
-                                "Flow_Name":emx_response['Flow']['Name'],
-                                "Flow_Arn":emx_response['Flow']['FlowArn'],
-                                "IngestIp":emx_response['Flow']['Source']['IngestIp'],
-                                "IngestPort":emx_response['Flow']['Source']['IngestPort'],
-                                "IngestProtocol":emx_response['Flow']['Source']['Transport']['Protocol']
-                            }
-
-                            # this is the Arn of the new Flow
-                            emx_flow_arn = emx_response['Flow']['FlowArn']
-                            flow_to_start.append(emx_flow_arn)
-
-                            #
-                            # Start Flow
-                            #
-                            #startFlow(emx_flow_arn)
-
-                            if len(exceptions) > 0:
-
-                                return errorOut()
-
-                            emx_flow_arns.append(emx_response['Flow']['FlowArn'])
                         #
-                        # Create EML Input
+                        # Create Item Structure for DB entry
                         #
+                        mediaconnect_flow_info = dict()
+                        mediaconnect_flow_info = {
+                            "Flow_Name":emx_response['Flow']['Name'],
+                            "Flow_Arn":emx_response['Flow']['FlowArn'],
+                            "IngestIp":emx_response['Flow']['Source']['IngestIp'],
+                            "IngestPort":emx_response['Flow']['Source']['IngestPort'],
+                            "IngestProtocol":emx_response['Flow']['Source']['Transport']['Protocol']
+                        }
 
-                        input_attachments = []
-                        emlInputCreation("ott")
-                        if event['detail']['channel_data']['mux']['create'] == "True":
+                        # this is the Arn of the new Flow
+                        emx_flow_arn = emx_response['Flow']['FlowArn']
+                        flow_to_start.append(emx_flow_arn)
 
-                            emlInputCreation("mux")
+                        #
+                        # Start Flow
+                        #
+                        #startFlow(emx_flow_arn)
 
-                        medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
+                        if len(exceptions) > 0:
 
+                            return errorOut()
+
+                        emx_flow_arns.append(emx_response['Flow']['FlowArn'])
+                        mediaconnect_flows_info.append(mediaconnect_flow_info)
 
 
                     else:
-                        # This is an ARN for an existing flow, add it to the lists of inputs to create
-                        emx_flow_arns.append(chinput)
 
+                        #
+                        # Get Info from MediaConnect
+                        #
+                        existing_flow_arn = chinputs[chinput]
+
+                        # describe flow
+                        describe_flow_response = describeFlow(existing_flow_arn)
+
+                        return describe_flow_response
+
+                        # error out
+
+                        # add response info to dictionary
+                        mediaconnect_flow_info = {
+                            "Flow_Name":"",
+                            "Flow_Arn":"",
+                            "IngestIp":"",
+                            "IngestPort":"",
+                            "IngestProtocol":""
+                        }
+
+                        mediaconnect_flows_info.append(mediaconnect_flow_info)
+
+                        # This is an ARN for an existing flow, add it to the list of flows in EML input to create
+                        emx_flow_arns.append(existing_flow_arn)
+
+                #
+                # Create EML Inputs
+                #
 
                 input_attachments = []
                 emlInputCreation("ott")
@@ -391,14 +418,14 @@ def lambda_handler(event, context):
 
                     emlInputCreation("mux")
 
+                mediaconnect_db_item[str(channel)] = mediaconnect_flows_info
                 medialive_db_item[str(channel)] = {"Input_Attachments":input_attachments}
 
             json_item['MediaConnect'] = mediaconnect_db_item
             json_item['MediaLive'] = medialive_db_item
 
+        # No data passed in body
         else:
-
-            #return json_item
 
             for channel in range(1,int(channels)+1):
 
