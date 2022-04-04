@@ -359,7 +359,7 @@ def lambda_handler(event, context):
                             "Flow_Name":emx_response['Flow']['Name'],
                             "Flow_Arn":emx_response['Flow']['FlowArn'],
                             "IngestIp":emx_response['Flow']['Source']['IngestIp'],
-                            "IngestPort":emx_response['Flow']['Source']['IngestPort'],
+                            "IngestPort":str(emx_response['Flow']['Source']['IngestPort']),
                             "IngestProtocol":emx_response['Flow']['Source']['Transport']['Protocol']
                         }
 
@@ -400,7 +400,7 @@ def lambda_handler(event, context):
                             "Flow_Name":describe_flow_response['Flow']['Name'],
                             "Flow_Arn":describe_flow_response['Flow']['FlowArn'],
                             "IngestIp":describe_flow_response['Flow']['Source']['IngestIp'],
-                            "IngestPort":describe_flow_response['Flow']['Source']['IngestPort'],
+                            "IngestPort":str(describe_flow_response['Flow']['Source']['IngestPort']),
                             "IngestProtocol":describe_flow_response['Flow']['Source']['Transport']['Protocol']
                         }
 
@@ -424,6 +424,7 @@ def lambda_handler(event, context):
 
             json_item['MediaConnect'] = mediaconnect_db_item
             json_item['MediaLive'] = medialive_db_item
+
 
         # No data passed in body
         else:

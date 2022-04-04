@@ -432,18 +432,19 @@ def lambda_handler(event, context):
             for channel in list(medialive_channels.keys()):
 
 
-                channel_arn_ott = medialive_channels[channel]['Channel_Arn_OTT']
-                channel_id = channel_arn_ott.split(":")[-1]
+                try:
+                    channel_arn_ott = medialive_channels[channel]['Channel_Arn_OTT']
+                    channel_id = channel_arn_ott.split(":")[-1]
 
-                deleteEMLChannel(channel_id)
-
-                if medialive_channels[channel]['Channel_Arn_MUX'] != "None":
-                    channel_arn_mux = medialive_channels[channel]['Channel_Arn_OTT']
-                    channel_id = channel_arn_mux.split(":")[-1]
                     deleteEMLChannel(channel_id)
 
+                    if medialive_channels[channel]['Channel_Arn_MUX'] != "None":
+                        channel_arn_mux = medialive_channels[channel]['Channel_Arn_MUX']
+                        channel_id = channel_arn_mux.split(":")[-1]
+                        deleteEMLChannel(channel_id)
 
 
+                except:
                     delete_exceptions.append("Unable to get MediaLive Channel Arn info from DB for channel : %s" % (channel_id))
 
 

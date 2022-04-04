@@ -259,8 +259,10 @@ def lambda_handler(event, context):
 
 
             # Describe mux and then add Destination to multiplex item
+            time.sleep(15)
             multiplex_details = describe_multiplex(multiplex_id)
-            multiplex_destinations = multiplex_details['Destinations']
+
+            multiplex_destinations = multiplex_details["Destinations"]
 
             multiplex_db_item["1"]['Destinations'] = {"A":multiplex_destinations[0]['MediaConnectSettings'],"B":multiplex_destinations[1]['MediaConnectSettings']}
 
