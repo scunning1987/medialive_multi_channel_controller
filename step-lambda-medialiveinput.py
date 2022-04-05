@@ -394,14 +394,29 @@ def lambda_handler(event, context):
                         if len(exceptions) > 0:
                             return errorOut()
 
+                        flow_name = describe_flow_response['Flow']['Name']
+                        flow_arn = describe_flow_response['Flow']['FlowArn']
+                        flow_ingest_ip = ""
+                        flow_ingest_port = ""
+                        flow_ingest_protocol = ""
+
+
+                        if 'EntitlementArn' not in list(describe_flow_response['Flow']['Source'].keys()):
+                            flow_ingest_ip = describe_flow_response['Flow']['Source']['IngestIp']
+                            flow_ingest_port = str(describe_flow_response['Flow']['Source']['IngestPort'])
+                            flow_ingest_protocol = describe_flow_response['Flow']['Source']['Transport']['Protocol']
+                        else:
+                            flow_ingest_ip = describe_flow_response['Flow']['Source']['EntitlementArn']
+                            flow_ingest_port = "Entitlement"
+                            flow_ingest_protocol = "Entitlement"
 
                         # add response info to dictionary
                         mediaconnect_flow_info = {
-                            "Flow_Name":describe_flow_response['Flow']['Name'],
-                            "Flow_Arn":describe_flow_response['Flow']['FlowArn'],
-                            "IngestIp":describe_flow_response['Flow']['Source']['IngestIp'],
-                            "IngestPort":str(describe_flow_response['Flow']['Source']['IngestPort']),
-                            "IngestProtocol":describe_flow_response['Flow']['Source']['Transport']['Protocol']
+                            "Flow_Name":flow_name,
+                            "Flow_Arn":flow_arn,
+                            "IngestIp":flow_ingest_ip,
+                            "IngestPort":flow_ingest_port,
+                            "IngestProtocol":flow_ingest_protocol
                         }
 
                         mediaconnect_flows_info.append(mediaconnect_flow_info)

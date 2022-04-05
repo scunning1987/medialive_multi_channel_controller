@@ -345,10 +345,11 @@ var fadeAway = function(buttonid) {
 
 function groupPopulator(value){
     groupSelector = value;
-    pipSelector = ""
+    pipSelector = "";
+    togglecontrols()
     document.getElementById('channel_jpg_view').style.display = "none";
 
-    document.getElementById('channel_status').innerHTML = ""
+    document.getElementById('channel_status').innerHTML = "";
 
     console.log("Selected group is " + groupSelector)
 
