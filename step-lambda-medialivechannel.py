@@ -463,4 +463,5 @@ def lambda_handler(event, context):
             event['eml_channel_delete_exceptions'] = delete_exceptions
             event['detail']['delete_tasks']['medialive_channels'] = 1
 
+        time.sleep(60)
         return event
