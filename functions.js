@@ -49,7 +49,7 @@ function tableCreateForm(channel_list){
   var channels = 5;
   var columns = 7;
 //  var rows_required = channels
-  var row_head = [ "#","channel_name","input","frame_size","codec","program_name","program_number"]
+  var row_head = [ "#","channel_name","input","source_program","frame_size","codec","program_name","program_number"]
 
   var body = document.body
 
@@ -67,6 +67,7 @@ function tableCreateForm(channel_list){
 
     var channel_size_dropdown = '<select><option value="hd">HD</option><option value="sd">SD</option></select>'
     var channel_codec_dropdown = '<select><option value="avc">AVC</option><option value="mpeg2">MPEG2</option></select>'
+    var source_program_input = '<input type="number" value="0"/>'
     var emx_flow_dropdown = ""
     var emx_flow_options = ""
 
@@ -93,6 +94,8 @@ function tableCreateForm(channel_list){
             cell.innerHTML = channel_codec_dropdown;
           } else if ( element[key] == "DROP-INPUT" ) {
             cell.innerHTML = emx_flow_dropdown;
+          } else if ( element[key] == "USER-INPUT" ) {
+            cell.innerHTML = source_program_input;
           } else {
             let text = document.createTextNode(element[key]);
             cell.appendChild(text);
@@ -633,6 +636,7 @@ function creategrouptblgen(groupbuildtype) {
          "channel_number":i,
          "channel_name":document.getElementById('newgroupname').value +'-'+ i.toString(),
          "channel_input":"DROP-INPUT",
+         "source_program":"USER-INPUT",
          "channel_size":"DROP-SIZE",
          "channel_codec":"DROP-CODEC",
          "program_name":document.getElementById('newgroupname').value +'-'+ i.toString(),
@@ -678,6 +682,7 @@ function creategrouptblgen(groupbuildtype) {
              "channel_number":i,
              "channel_name":document.getElementById('copygroupname').value +'-'+ i.toString(),
              "channel_input":"DROP-INPUT",
+             "source_program":"USER-INPUT",
              "channel_size":selected_group_details['channels'][channel]['frame_size'],
              "channel_codec":selected_group_details['channels'][channel]['codec'],
              "program_name":document.getElementById('copygroupname').value +'-'+ i.toString(),
@@ -726,6 +731,9 @@ function management_api () {
 
         rowData[ headers[j] ] = myValue
 
+      } else if ( tableRow.cells[j].innerHTML.includes('input') ) {
+        var myValue = tableRow.cells[j].getElementsByTagName("input")[0].value
+        rowData[ headers[j] ] = myValue
       } else {
         rowData[ headers[j] ] = tableRow.cells[j].innerHTML
      }
@@ -790,6 +798,19 @@ function management_api () {
 
   console.log(JSON.stringify(total_create_payload))
   groupCreate(total_create_payload,create_region,group_name)
+
+  var c = document.getElementById("create-container").children;
+  for(i = 0; i < c.length ; i++) {
+   c[i].style.display = "none";
+   c[i].value = null;
+  }
+  var c = document.getElementById("copy-container").children;
+    for(i = 0; i < c.length ; i++) {
+     c[i].style.display = "none";
+     c[i].value = null;
+    }
+  document.getElementById('group_create_form').innerHTML = "";
+  document.getElementById('group_create_form').style.display = "none";
 
 }
 

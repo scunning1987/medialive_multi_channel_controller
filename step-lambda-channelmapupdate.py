@@ -218,8 +218,8 @@ def lambda_handler(event, context):
 
             # Get MediaConnect source info
             mediaconnect_sources = json_item['MediaConnect'][str(channel)]
-            source_a = "%s://%s:%s" % (mediaconnect_sources[0]['IngestProtocol'],mediaconnect_sources[0]['IngestIp'],mediaconnect_sources[0]['IngestPort'])
-            source_b = "%s://%s:%s" % (mediaconnect_sources[1]['IngestProtocol'],mediaconnect_sources[1]['IngestIp'],mediaconnect_sources[1]['IngestPort'])
+            source_a = "%s://%s:%s (%s)" % (mediaconnect_sources[0]['IngestProtocol'],mediaconnect_sources[0]['IngestIp'],mediaconnect_sources[0]['IngestPort'],mediaconnect_sources[0]['Flow_Name'])
+            source_b = "%s://%s:%s (%s)" % (mediaconnect_sources[1]['IngestProtocol'],mediaconnect_sources[1]['IngestIp'],mediaconnect_sources[1]['IngestPort'],mediaconnect_sources[1]['Flow_Name'])
 
 
             ott_channel_id = medialive_channel['Channel_Arn_OTT'].split(":")[-1] # FIX

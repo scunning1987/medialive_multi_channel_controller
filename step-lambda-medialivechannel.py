@@ -68,7 +68,7 @@ def lambda_handler(event, context):
 
     def errorOut():
         event['status'] = exceptions
-        raise Exception("Unable to complete function : %s" % (event))
+        raise Exception("Unable to complete function : %s" % (exceptions))
         ### NEED TO raise exception here!
         return event
 
@@ -84,7 +84,7 @@ def lambda_handler(event, context):
             create_channel_response = eml_client.create_channel(ChannelClass=pipeline,InputAttachments=channel_input_attachments,Destinations=destinations_template,EncoderSettings=encoder_settings,InputSpecification=input_specs,LogLevel=loglevel,Name=channel_name,RoleArn=role_arn)
         except Exception as e:
             LOGGER.error("Unable to create channel %s, got exception : %s" % (channel_name,e))
-            exceptions.append("Unable to create channel, got exception : %s" % (e))
+            exceptions.append("Unable to create channel %s, got exception : %s" % (channel_name,e))
             create_channel_response = "Unable to create channel, got exception : %s" % (e)
         LOGGER.info("Done Creating MediaLive Channel : %s " % (channel_name))
         return create_channel_response
@@ -292,6 +292,8 @@ def lambda_handler(event, context):
                             if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
                                 input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}
 
+
+
                             channel_input_attachments.append(input_properties)
 
                     # construct medialive event outputs
@@ -378,6 +380,18 @@ def lambda_handler(event, context):
                         if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
                             input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}
 
+                        if medialive_channel['Input_Attachments'][ia]['Type'] == "MEDIACONNECT":
+                            source_program = int(channel_data['channels'][channel-1]['source_program'])
+
+                            if source_program > 0: # the source program has been explicitly declared.
+                                input_properties['InputSettings']['VideoSelector'] = {
+                                    "SelectorSettings":{
+                                        "VideoSelectorProgramId": {
+                                            "ProgramId":source_program
+                                        }
+                                    }
+                                }
+
                         channel_input_attachments.append(input_properties)
 
                 # construct medialive event outputs
@@ -450,7 +464,7 @@ def lambda_handler(event, context):
 
             if "Multiplex" in json_item:
 
-                time.sleep(5)
+                time.sleep(60)
 
                 multiplex_id = json_item['Multiplex']['1']['Multiplex_Id']
 
