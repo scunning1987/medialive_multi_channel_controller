@@ -292,6 +292,18 @@ def lambda_handler(event, context):
                             if medialive_channel['Input_Attachments'][ia]['Type'] == "URL_PULL" and "m3u8" in medialive_channel['Input_Attachments'][ia]['Sources'][0]['Url']:
                                 input_properties['InputSettings']['NetworkInputSettings'] = {"HlsInputSettings":{"BufferSegments":3,"Scte35Source":"MANIFEST"}}
 
+                            if medialive_channel['Input_Attachments'][ia]['Type'] == "MEDIACONNECT":
+                                source_program = int(channel_data['channels'][channel-1]['source_program'])
+
+                                if source_program > 0: # the source program has been explicitly declared.
+                                    input_properties['InputSettings']['VideoSelector'] = {
+                                        "SelectorSettings":{
+                                            "VideoSelectorProgramId": {
+                                                "ProgramId":source_program
+                                            }
+                                        }
+                                    }
+
 
 
                             channel_input_attachments.append(input_properties)

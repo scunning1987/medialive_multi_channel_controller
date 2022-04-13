@@ -213,7 +213,7 @@ def lambda_handler(event, context):
             #
             #
 
-            az = ["%s%s" % (region,"b"), "%s%s" % (region,"c")]
+            az = ["%s%s" % (region,"a"), "%s%s" % (region,"b")]
             bitrate = int(event['detail']['channel_data']['mux']['bitrate'])
             muxid = 1
             muxname = event['detail']['channel_data']['mux']['multiplex_name']
