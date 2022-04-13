@@ -2,7 +2,13 @@
 
 ## Overview
 
-This is a solution designed for companies or individuals that have a need to do accurate source switching on their live event channels. The full-features MediaLive Scheduling API/SDK makes this possible. Other core AWS services have been used to create a very robust and lightweight solution.
+This is a solution designed for companies or individuals that have a need the following features:
+
+- Easy channel creation at scale, including MediaPackage and MediaConnect resources
+- Visual feedback on channel status
+- Granular and global control of channel starting and stopping
+- Switching inputs
+- Multiple output types supported: Statistical Multiplexing, and HLS OTT
 
 ## Architecture
 
