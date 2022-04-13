@@ -15,10 +15,15 @@ Parameters:
     Description: Name of the CF stack
     Type: String
 
+  VodBucket:
+    Description: Please enter the bucket name where MP4 content resides and can be used as inputs to your channel
+    Type: String
+    Default: aws-elemental-demo-2021
+
   MediaLiveScheduleCleanupTag:
     Description: Enter a Property name here that the schedule cleanup function will look for when it runs its daily cleanup. Channels that don't have this tag will be ignored
     Type: String
-    Default: Bumpers
+    Default: emlauto
 
 ## Resources
 Resources:
@@ -1053,6 +1058,9 @@ Resources:
               s3_key = os.environ['CONFIG_KEY']
               api_ctrl = os.environ['APICTRL']
 
+              vod_bucket = os.environ['VOD_BUCKET']
+
+
               LOGGER.info("Environment Variable : S3 Bucket : %s " % (bucket))
               LOGGER.info("Environment Variable : S3 Key : %s " % (s3_key))
               LOGGER.info("Environment Variable : API Ctrl : %s " % (api_ctrl))
@@ -1076,6 +1084,7 @@ Resources:
                   # Edit json with deployment information
                   s3_data = json.loads(s3_response['Body'].read())
                   s3_data['control_api_endpoint_url'] = api_ctrl
+                  s3_data['vod_bucket'] = vod_bucket
                   api_endpoint_parse = urlparse(api_ctrl)
 
                   content_type = "application/json"
@@ -1105,6 +1114,7 @@ Resources:
           BUCKET: !Ref S3Bucket
           CONFIG_KEY: !GetAtt FileMover.channel_map
           APICTRL: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${ApiStage}/dashboard-ctrl
+          VOD_BUCKET: !Ref VodBucket
       Tags:
         - Key: StackName
           Value: !Ref AWS::StackName
