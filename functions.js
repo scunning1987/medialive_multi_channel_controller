@@ -8,7 +8,7 @@
   page_url_to_array = window.location.href.split("/")
   api_gw_proxy_base = page_url_to_array.slice(0,5).join("/")
 */
-var supervisor_pass = "dish";
+var supervisor_pass = "aws";
 
 function tableCreate(total_channels){
 
